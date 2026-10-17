@@ -63,6 +63,8 @@ credentials through their respective owners using the runbook.
 
 - Allow the protected Blockfrost credential read, then validate both indexer
   transports and the Preprod RPC chain. Metadata alone is insufficient.
+  The Operator reported that the macOS login-Keychain password prompt was
+  stuck; protected reads timed out. Credential-read retries were stopped.
 - Complete the Vercel build configuration with a genuine deployment label and
   usable browser-safe endpoints. Blockfrost's authenticated routing URLs must
   not distribute the private token through `VITE_*` values. Contract IDs and
