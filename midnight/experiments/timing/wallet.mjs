@@ -9,6 +9,9 @@ import {emit} from './isolated.mjs';
 // Staged variant of the custody protected-wallet bootstrap: identical key
 // derivation and routes, but reports the stage (and error class only) that
 // fails, with generous synchronization time for a first sync from genesis.
+// Diagnostic text with URLs, long hex, and key/value credentials removed, truncated.
+export const redacted = text => String(text ?? '').replace(/[a-z]+:\/\/\S+/gi, '<url>').replace(/[0-9a-f]{24,}/gi, '<hex>').replace(/(project_id|token|seed|mnemonic|key)\S*/gi, '<redacted>').slice(0, 240);
+export const errorDetail = error => { const parts = []; for (let e = error, i = 0; e && i < 4; e = e.cause, i++) parts.push(`${e?.constructor?.name}: ${redacted(e?.message)}`); return parts.join(' <- '); };
 export const errorClass = error => `${error?.constructor?.name ?? 'unknown'}${typeof error?.code === 'string' && /^[A-Z_0-9]{2,40}$/.test(error.code) ? `:${error.code}` : ''}`;
 
 // Wallet synchronization from genesis took well over an hour on Preprod, so the

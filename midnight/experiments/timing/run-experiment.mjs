@@ -12,6 +12,7 @@ const ABBREVIATE = hash => (typeof hash === 'string' ? hash : hash);
 if (process.argv[2] === '--worker') {
   const [, , , envPath, mode, evidencePath] = process.argv;
   const {openSession, withWalletLock, providerClock, artifactHashes, sha256, errorClass} = await import('./network-session.mjs');
+  const {errorDetail} = await import('./wallet.mjs');
   const {SCHEDULE} = await import('./schedule.mjs');
   const {replay} = await import('./replay.mjs');
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -63,12 +64,12 @@ if (process.argv[2] === '--worker') {
           Object.assign(record, {outcome: data.status, txHash: data.txHash, blockHash: data.blockHash, blockHeight: data.blockHeight, blockTimestampMs: data.blockTimestamp});
         } catch (error) {
           record.outcome = record.txId ? 'finality-unobserved' : 'rejected-before-block';
-          record.errorClass = errorClass(error);
+          record.errorClass = errorClass(error); record.errorDetail = errorDetail(error);
         } finally { control.forgedSeconds = undefined; control.gate = undefined; }
       }, () => emit({stage: 'waiting-for-wallet-lock', for: id}));
       evidence.steps.push(record);
       save();
-      emit({step: id, outcome: record.outcome, expected: expect, blockTimestampMs: record.blockTimestampMs ?? null, submittedAtSeconds: record.submittedAtSeconds ?? null, errorClass: record.errorClass});
+      emit({step: id, outcome: record.outcome, expected: expect, blockTimestampMs: record.blockTimestampMs ?? null, submittedAtSeconds: record.submittedAtSeconds ?? null, errorClass: record.errorClass, errorDetail: record.errorDetail});
       return record;
     };
     const honestBucketAt = target => bucketAt(Math.max(target, clock.now() + 25) + 8);
@@ -155,7 +156,7 @@ if (process.argv[2] === '--worker') {
     emit({done: true});
   } catch (error) {
     evidence.failure = errorClass(error); save();
-    emit({done: false, error: errorClass(error)});
+    emit({done: false, error: errorClass(error), detail: errorDetail(error)});
   } finally { await session?.opened.close().catch(() => {}); process.exit(); }
 } else {
   const [envPath, mode = 'full', name = `network-${mode}.json`] = process.argv.slice(2);

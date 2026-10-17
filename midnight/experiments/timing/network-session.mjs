@@ -66,6 +66,7 @@ export async function providerClock(provider) {
 export async function openSession(envPath) {
   const opened = await openStagedWallet(envPath);
   const {wallet, shielded, dust, provider: proxy} = opened;
+  (await import('@midnight-ntwrk/midnight-js-network-id')).setNetworkId('preprod');
   const contracts = await import('@midnight-ntwrk/midnight-js-contracts');
   const compact = await import('@midnight-ntwrk/midnight-js-protocol/compact-js');
   const indexer = await import('@midnight-ntwrk/midnight-js-indexer-public-data-provider');
