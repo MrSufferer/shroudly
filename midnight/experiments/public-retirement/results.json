@@ -1,0 +1,212 @@
+{
+  "recordedAt": "2026-10-17T14:44:13.824Z",
+  "issue": 22,
+  "releaseQualified": false,
+  "classification": "mechanics-measured-award-below-floor-decision-required",
+  "toolchain": {
+    "node": "v24.10.0",
+    "compiler": "0.31.1",
+    "runtime": "0.16.0",
+    "ledger": "8.1.0",
+    "proofServer": {
+      "endpoint": "http://127.0.0.1:6300",
+      "reportedVersion": "8.1.0"
+    }
+  },
+  "revision": {
+    "head": "eb3a27b7f615222e0ab0ccbb96268f52037750ad",
+    "workingTreeStatus": "M apps/web/CONTEXT.md\n M docs/adr/0013-separate-on-chain-responsibilities.md\n M docs/issue-2-child-issues.md\n M docs/operations/CONTEXT.md\n M midnight/CONTEXT.md\n?? .claude/\n?? docs/adr/0028-cap-total-participant-principal.md\n?? docs/adr/0029-require-durable-single-writer-private-state.md\n?? docs/adr/0030-preserve-usable-preprod-claim-windows.md\n?? docs/midnight-stack-review.md\n?? docs/prd-refinement.md\n?? docs/prd-ticket-refinements.md\n?? docs/preprod-technical-spec.md\n?? midnight/experiments/public-retirement/results.json"
+  },
+  "sourceHashes": {
+    "./PublicRetirement.compact": "56f774b2e66e8eec08c080d1ecf1a29f4580706f2d957211d15799313ed6352a",
+    "./pool.mjs": "9bbfe3b56f1dd236da99fa27badf9e9c306627f6ed58e9ad03ce6c5f154efd2c",
+    "./private-state.mjs": "ede7e63c845abfde309161683273f40b567927715c51c860bb5936bb5ac82c62",
+    "./disclosure.mjs": "08d25a3b04aa5c978965c360f38d6934af5081a41af01eff0c764306afafd7ad",
+    "./prove.mjs": "06088e1a0747d71eb41bb069e5f175271dda623f596fb1caf2767894d5e5b23a",
+    "./award.mjs": "2812125ac9389d6cb25195d9b23e2f5dbc1265a61379b08619bcdade0147f2a3",
+    "./run.mjs": "8fc7974e0741ef25053921c0df3f727365a943ee69564411af2fc6a5fbc5fd32",
+    "./pool.test.mjs": "0afeb7787e44dcbab4569dfa368df557ce07b7cba65e9987cd6ee504fd04e5b5",
+    "./disclosure.test.mjs": "a7a0ceda960659cd0bb3e2870b25589568501b8964af7a17dbd41b1954c99124",
+    "./prove.test.mjs": "29b451fd286cb6289e9b0463b9eed9adfbb079922a4b6a4f62609e7598831d08",
+    "./award.test.mjs": "8cffa51004221467cd47529b041078f835522117c5f8fd16ec2f393af81ec70a",
+    "./report.test.mjs": "0c2f142653ec81b4d180f8d4fb3399482fda7c7104b71e0831385269f8a5d7da",
+    "./README.md": "6d1597ebed4c49c9903e12b532b4a946b75d861bc2836cfde4318ab87cbe812f"
+  },
+  "compileMs": 12618,
+  "keys": {
+    "enroll": {
+      "prover": {
+        "bytes": 5207809,
+        "sha256": "4f136dfefd589385d8e9676cb179d28e6a61ca2f40cb2e369d4232124d58d6f8"
+      },
+      "verifier": {
+        "bytes": 2119,
+        "sha256": "78f3bb57b2b62b80737cf16de526ac8bca98ec75e04f02652d65a1b9bccb5915"
+      }
+    },
+    "contribute": {
+      "prover": {
+        "bytes": 9960248,
+        "sha256": "032c7c675c5fb031914ff141f69f04ec7184359d8ed20ca3f873d9facccdf063"
+      },
+      "verifier": {
+        "bytes": 2119,
+        "sha256": "92ed5f647b659d1097873c2566abf9b8f0575a54cdfc54492e422aa26bbf4a19"
+      }
+    },
+    "withdraw": {
+      "prover": {
+        "bytes": 9959818,
+        "sha256": "24f3eef232e5a904b123f2746c498cc16e3e8da23cf45f5891d9d62742f6e956"
+      },
+      "verifier": {
+        "bytes": 2119,
+        "sha256": "78490ee4808a57b2241216c34827a59ea73db499b0544e4468d5093191f1546e"
+      }
+    },
+    "closeDraw": {
+      "prover": {
+        "bytes": 547486,
+        "sha256": "31faf0cb1a621116f53bc0c429133c275347394550e9c3e7fd16e5a524063d21"
+      },
+      "verifier": {
+        "bytes": 1351,
+        "sha256": "179c03d2720bdb0a64c803cf247dfb00b794c37caf785559fa13fb1d63c18c5c"
+      }
+    },
+    "compactRetired": {
+      "prover": {
+        "bytes": 149810,
+        "sha256": "8c59193d13f602615b1962a8784f8c432310db2b4fbf7c2fe70a21d0ffdf68ba"
+      },
+      "verifier": {
+        "bytes": 1351,
+        "sha256": "a4cf79d1c501854a829496941475dba058865e3ac8a9f8442a96c3a2150c39ea"
+      }
+    },
+    "claim": {
+      "prover": {
+        "bytes": 2827169,
+        "sha256": "3d7771999e3c401eb6534acb842199cbc0a157ea37429f303246be5d4b2ba21b"
+      },
+      "verifier": {
+        "bytes": 2119,
+        "sha256": "108079e92218adf037df35797589eaa73f02c7fed0a27b730c97a31912c3b184"
+      }
+    }
+  },
+  "proofs": [
+    {
+      "circuit": "enroll",
+      "wellFormed": "accepted",
+      "proveMs": 1099,
+      "proofBytes": 4508,
+      "transactionBytes": 5644,
+      "feesSpecks": "545460000000001",
+      "withinBlockLimits": true
+    },
+    {
+      "circuit": "contribute",
+      "wellFormed": "accepted",
+      "proveMs": 2123,
+      "proofBytes": 4508,
+      "transactionBytes": 6099,
+      "feesSpecks": "835860000000001",
+      "withinBlockLimits": true
+    },
+    {
+      "circuit": "withdraw",
+      "wellFormed": "accepted",
+      "proveMs": 2235,
+      "proofBytes": 4508,
+      "transactionBytes": 5734,
+      "feesSpecks": "381850000000001",
+      "withinBlockLimits": true
+    },
+    {
+      "circuit": "closeDraw",
+      "wellFormed": "accepted",
+      "proveMs": 224,
+      "proofBytes": 2940,
+      "transactionBytes": 4528,
+      "feesSpecks": "333140000000001",
+      "withinBlockLimits": true
+    },
+    {
+      "circuit": "claim",
+      "wellFormed": "accepted",
+      "proveMs": 658,
+      "proofBytes": 4508,
+      "transactionBytes": 5777,
+      "feesSpecks": "395590000000001",
+      "withinBlockLimits": true
+    },
+    {
+      "circuit": "compactRetired",
+      "wellFormed": "accepted",
+      "proveMs": 156,
+      "proofBytes": 2940,
+      "transactionBytes": 4182,
+      "feesSpecks": "315840000000001",
+      "withinBlockLimits": true
+    }
+  ],
+  "verification": {
+    "localWellFormed": "structure, transcript and limits only",
+    "tamperedProofByte": "accepted",
+    "wrongCircuitVerifierKey": "accepted",
+    "finding": "ledger-v8 8.1.0 Transaction.wellFormed with verifyContractProofs accepts tampered proofs and proofs against the wrong verifier key; proof verification is not established locally and remains a node-side gate"
+  },
+  "award": {
+    "wMax": "900000000000",
+    "drawsPerDay": 96,
+    "typical": {
+      "slots": "5",
+      "totalWeight": "4500000000",
+      "probability": 0.001,
+      "expectedDraws": 1000,
+      "expectedWaitDays": 10.416666666666666
+    },
+    "skewed": {
+      "slots": "5",
+      "totalWeight": "903600000000",
+      "probability": 0.2008,
+      "expectedDraws": 4.9800796812749,
+      "expectedWaitDays": 0.051875830013280215
+    },
+    "allAtCap": {
+      "slots": "5",
+      "totalWeight": "4500000000000",
+      "probability": 1,
+      "expectedDraws": 1,
+      "expectedWaitDays": 0.010416666666666666
+    },
+    "churnDuring": {
+      "slots": "6",
+      "totalWeight": "5220000000",
+      "probability": 0.0009666666666666667,
+      "expectedDraws": 1034.4827586206895,
+      "expectedWaitDays": 10.775862068965516
+    },
+    "churnAfterCompaction": {
+      "slots": "5",
+      "totalWeight": "5400000000",
+      "probability": 0.0012,
+      "expectedDraws": 833.3333333333334,
+      "expectedWaitDays": 8.680555555555555
+    },
+    "finding": "public retirement bounds churn dilution to the interval it occurs in, but typical award probability is unchanged from design record 4.1; rejection rollover is the dominant outcome"
+  },
+  "disclosureCohort": {
+    "minimum": 5,
+    "counts": "live identity tags at close (credentials, not people; ADR 0028)",
+    "addedDisclosure": "none under public retirement"
+  },
+  "liveNetworkGates": [
+    "node-side contract proof verification",
+    "draw randomness",
+    "asset custody",
+    "network time",
+    "transaction inclusion within the Draw Interval"
+  ]
+}
