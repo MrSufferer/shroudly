@@ -10,7 +10,7 @@ export const emit = record => process.send?.(record);
 const SECRET_SHAPES = [/project_id/i, /https?:\/\/[^\s"']*[@?]/i, /wss?:\/\/127\.0\.0\.1:\d+\/[0-9a-f]{20,}/i, /blockfrost/i, /bearer\s/i, /(mnemonic|seed)/i];
 const HASH_KEY = /(^|[a-z])hash(es)?$/i;
 
-function suspicious(value, key = '') {
+export function suspicious(value, key = '') {
   if (typeof value === 'string') {
     if (SECRET_SHAPES.some(shape => shape.test(value))) return true;
     return /[0-9a-f]{64}/i.test(value) && !(HASH_KEY.test(key) && /^(0x)?[0-9a-f]{64}$/i.test(value));
