@@ -1,0 +1,15 @@
+pragma language_version >= 0.22 && <= 0.23;
+import CompactStandardLibrary;
+// Enforceable-separation probe: the pool would authenticate the asset contract's
+// custody by calling it. Expected to be rejected by toolchains targeting ledger 8.
+contract SeparatedAsset {
+  circuit custodyValue(): Uint<64>;
+}
+export ledger asset: SeparatedAsset;
+export ledger principalLiability: Uint<64>;
+constructor(a: SeparatedAsset) {
+  asset = disclose(a);
+}
+export circuit recordCustody(): [] {
+  principalLiability = asset.custodyValue();
+}

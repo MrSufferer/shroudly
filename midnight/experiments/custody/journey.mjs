@@ -72,15 +72,20 @@ async function worker(envPath) {
       },
     };
     const publicDataProvider = indexer.indexerPublicDataProvider(http, ws);
-    const zkConfigProvider = new zkModule.NodeZkConfigProvider(managed.pathname);
-    const proofProvider = proofModule.httpClientProofProvider('http://127.0.0.1:6300', zkConfigProvider, { timeout: 300000 });
     privateDirectory = mkdtempSync(join(tmpdir(), 'custody-private-'));
     const password = `Aa1!${randomBytes(18).toString('hex')}`;
     const privateStateProvider = privateModule.levelPrivateStateProvider({
       midnightDbName: join(privateDirectory, 'db'), privateStateStoreName: 'custody-private', signingKeyStoreName: 'custody-keys',
       privateStoragePasswordProvider: () => password, accountId: 'custody-experiment',
     });
-    const providers = { privateStateProvider, publicDataProvider, zkConfigProvider, proofProvider, walletProvider, midnightProvider };
+    const bundle = (tag, ContractClass, directory, witnessMap) => {
+      const zkConfigProvider = new zkModule.NodeZkConfigProvider(directory.pathname);
+      const proofProvider = proofModule.httpClientProofProvider('http://127.0.0.1:6300', zkConfigProvider, { timeout: 300000 });
+      let compiled = compactJs.CompiledContract.make(tag, ContractClass);
+      compiled = compactJs.CompiledContract.withWitnesses(witnessMap)(compiled);
+      compiled = compactJs.CompiledContract.withCompiledFileAssets(directory.pathname)(compiled);
+      return { tag, compiledContract: compiled, providers: { privateStateProvider, publicDataProvider, zkConfigProvider, proofProvider, walletProvider, midnightProvider } };
+    };
 
     // Contract with ephemeral authority secret; openings are public synthetic fixtures.
     let authoritySecret = randomBytes(32);
@@ -92,9 +97,7 @@ async function worker(envPath) {
       spendable: ({ privateState }) => { if (!qualifiedCoin) throw Error('qualified coin unavailable'); return [privateState, qualifiedCoin]; },
       recipient: ({ privateState }) => [privateState, { bytes: recipientBytes }],
     };
-    let compiledContract = compactJs.CompiledContract.make('CustodyProbe', Contract);
-    compiledContract = compactJs.CompiledContract.withWitnesses(witnesses)(compiledContract);
-    compiledContract = compactJs.CompiledContract.withCompiledFileAssets(managed.pathname)(compiledContract);
+    const probe = bundle('CustodyProbe', Contract, managed, witnesses);
 
     // Indexer helpers: independent GraphQL reads, no SDK state involved.
     const gql = async (query, variables) => {
@@ -115,16 +118,16 @@ async function worker(envPath) {
       };
     };
     const publicOf = (finalized) => ({ txHash: finalized.public.txHash, blockHeight: Number(finalized.public.blockHeight), blockHash: finalized.public.blockHash, status: String(finalized.public.status) });
-    const submitCall = (address, circuitId, args = []) => withLock(opened, async () => {
+    const submitCall = (address, circuitId, args = [], target = probe) => withLock(opened, async () => {
       const dustBefore = dustNow();
       const started = Date.now();
-      const result = await contracts.submitCallTx(providers, { compiledContract, contractAddress: address, circuitId, args, privateStateId: 'custody' });
+      const result = await contracts.submitCallTx(target.providers, { compiledContract: target.compiledContract, contractAddress: address, circuitId, args, privateStateId: target.tag });
       const state = await opened.wallet.waitForSyncedState();
       return { ...publicOf(result), elapsedMs: Date.now() - started, dustSpentApprox: (dustBefore - state.dust.balance(new Date())).toString() };
     });
     const expectRejection = async (name, address, circuitId, args, expected) => {
       let rejected = false; let matched = false;
-      try { await contracts.createUnprovenCallTx(providers, { compiledContract, contractAddress: address, circuitId, args, privateStateId: 'custody' }); }
+      try { await contracts.createUnprovenCallTx(probe.providers, { compiledContract: probe.compiledContract, contractAddress: address, circuitId, args, privateStateId: probe.tag }); }
       catch (error) { rejected = true; matched = String(error?.message).includes(expected); }
       send({ rejection: { name, rejected, reasonMatched: matched } });
     };
@@ -139,17 +142,22 @@ async function worker(envPath) {
       return { reconciliation: { ...reconciliation, reconciled: reconciliation.reconciled && custodyColor === derivedColor }, custodyColor, colorDerivedFromContractAddress: custodyColor === derivedColor, allocatedYield: state.allocatedYield.toString(), seeded: state.seeded };
     };
 
-    // 1. Deploy
-    const deploy = await withLock(opened, () => step('deploy', async () => {
+    const deployContract = (name, target, args = []) => withLock(opened, () => step(name, async () => {
+      const dustBefore = dustNow();
       const started = Date.now();
-      const deployed = await contracts.deployContract(providers, { compiledContract, args: [], privateStateId: 'custody', initialPrivateState: {} });
-      return { address: String(deployed.deployTxData.public.contractAddress ?? deployed.address), ...publicOf(deployed.deployTxData), elapsedMs: Date.now() - started };
+      const deployed = await contracts.deployContract(target.providers, { compiledContract: target.compiledContract, args, privateStateId: target.tag, initialPrivateState: {} });
+      const state = await opened.wallet.waitForSyncedState();
+      return { address: String(deployed.deployTxData.public.contractAddress ?? deployed.address), ...publicOf(deployed.deployTxData), elapsedMs: Date.now() - started, dustSpentApprox: (dustBefore - state.dust.balance(new Date())).toString() };
     }));
+
+    const colocated = async () => {
+    // 1. Deploy
+    const deploy = await deployContract('deploy', probe);
     if (!deploy.ok) return;
     const address = deploy.value.address;
     send({ contract: address });
     const deployEvidence = await step('deploy-indexer', () => transactionEvidence(deploy.value.txHash, address));
-    send({ step: { name: 'deploy', txHash: deploy.value.txHash, blockHeight: deploy.value.blockHeight, blockHash: deploy.value.blockHash, status: deploy.value.status, elapsedMs: deploy.value.elapsedMs, txBytes: deployEvidence.value?.txBytes } });
+    send({ step: { name: 'deploy', txHash: deploy.value.txHash, blockHeight: deploy.value.blockHeight, blockHash: deploy.value.blockHash, status: deploy.value.status, elapsedMs: deploy.value.elapsedMs, dustSpentApprox: deploy.value.dustSpentApprox, txBytes: deployEvidence.value?.txBytes } });
 
     // 2. Seed (mint + receive shielded reserve to contract)
     const seed = await step('seed', () => submitCall(address, 'seed'));
@@ -191,6 +199,45 @@ async function worker(envPath) {
     if (fresh.ok) send({ reconciliation: fresh.value });
     const finalState = await opened.wallet.waitForSyncedState();
     send({ walletRelease: { shieldedColorBalances: Object.fromEntries(Object.entries(finalState.shielded.balances ?? {}).map(([k, v]) => [k, BigInt(v).toString()])) } });
+    };
+
+    // 7. Separated topology on the same network: asset holds custody, pool keeps liabilities.
+    // Without cross-contract calls (ledger 8) the pool records a caller-supplied claim.
+    const separated = async () => {
+      const assetModule = await import('../../managed/separated-asset/contract/index.js');
+      const poolModule = await import('../../managed/separated-pool/contract/index.js');
+      const ownerOnly = { owner: ({ privateState }) => [privateState, authoritySecret] };
+      const asset = bundle('SeparatedAsset', assetModule.Contract, new URL('../../managed/separated-asset/', import.meta.url), ownerOnly);
+      const pool = bundle('SeparatedPool', poolModule.Contract, new URL('../../managed/separated-pool/', import.meta.url), ownerOnly);
+      const assetDeploy = await deployContract('separated-asset-deploy', asset);
+      if (!assetDeploy.ok) return;
+      const assetAddress = assetDeploy.value.address;
+      send({ separatedAsset: assetAddress });
+      send({ step: { name: 'separated-asset-deploy', ...assetDeploy.value, address: undefined } });
+      const assetSeed = await step('separated-asset-seed', () => submitCall(assetAddress, 'seed', [], asset));
+      if (!assetSeed.ok) return;
+      send({ step: { name: 'separated-asset-seed', ...assetSeed.value } });
+      const poolDeploy = await deployContract('separated-pool-deploy', pool, [Uint8Array.from(Buffer.from(assetAddress, 'hex'))]);
+      if (!poolDeploy.ok) return;
+      const poolAddress = poolDeploy.value.address;
+      send({ separatedPool: poolAddress });
+      send({ step: { name: 'separated-pool-deploy', ...poolDeploy.value, address: undefined } });
+      const forged = await step('separated-pool-forged-claim', () => submitCall(poolAddress, 'recordSeed', [5000000n], pool));
+      if (!forged.ok) return;
+      send({ step: { name: 'separated-pool-forged-claim', ...forged.value } });
+      const forgedResult = await step('separated-pool-forged-randomness', () => submitCall(poolAddress, 'allocateYield', [424242n], pool));
+      if (forgedResult.ok) send({ step: { name: 'separated-pool-forged-randomness', ...forgedResult.value } });
+      const view = await step('separated-fresh-reconciliation', async () => {
+        const fresh = indexer.indexerPublicDataProvider(http, ws);
+        const assetState = assetModule.ledger((await contracts.getPublicStates(fresh, assetAddress)).contractState);
+        const poolState = poolModule.ledger((await contracts.getPublicStates(fresh, poolAddress)).contractState);
+        return reconcileCustody({ custody: { value: assetState.custody.value }, principalLiability: poolState.principalLiability, prizeReserve: poolState.prizeReserve, prizeLiability: poolState.prizeLiability });
+      });
+      if (view.ok) send({ separatedReconciliation: view.value });
+    };
+
+    await colocated();
+    await separated();
   } finally {
     if (lockHeld) { try { rmdirSync(LOCK); } catch { /* ignore */ } }
     if (privateDirectory) rmSync(privateDirectory, { recursive: true, force: true });
@@ -226,6 +273,9 @@ child.on('message', (m) => {
     } catch { evidence.failures.push({ step: 'evidence-projection', message: 'invalid step evidence' }); }
   }
   if (m?.funding) evidence.funding = { nightBalance: str(m.funding.nightBalance, /^\d{1,30}$/), dustBalance: str(m.funding.dustBalance, /^\d{1,30}$/) };
+  if (m?.separatedAsset) evidence.separatedAssetAddress = str(m.separatedAsset, /^[0-9a-f]{64}$/);
+  if (m?.separatedPool) evidence.separatedPoolAddress = str(m.separatedPool, /^[0-9a-f]{64}$/);
+  if (m?.separatedReconciliation) evidence.separatedFreshIndexerView = { ...Object.fromEntries(['custodyValue', 'principalLiability', 'prizeReserve', 'prizeLiability', 'liabilitiesTotal'].map((k) => [k, str(m.separatedReconciliation[k], /^\d{1,30}$/)])), reconciled: m.separatedReconciliation.reconciled === true };
   if (m?.contract) evidence.contractAddress = str(m.contract, /^[0-9a-f]{64}$/);
   if (m?.rejection) evidence.rejections.push({ name: str(m.rejection.name, /^[a-z-]{1,60}$/), rejected: m.rejection.rejected === true, reasonMatched: m.rejection.reasonMatched === true });
   if (m?.reconciliation) {

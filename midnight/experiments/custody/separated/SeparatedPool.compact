@@ -1,0 +1,31 @@
+pragma language_version >= 0.22 && <= 0.23;
+import CompactStandardLibrary;
+// Separated topology, pool side. Without cross-contract calls (ledger 8) the pool can
+// only pin the asset address and accept a caller-supplied custody/result claim; it
+// cannot prove the claim against the asset contract's shielded coin.
+export ledger authority: Bytes<32>;
+export ledger assetContract: Bytes<32>;
+export ledger reportedCustody: Uint<64>;
+export ledger principalLiability: Uint<64>;
+export ledger prizeReserve: Uint<64>;
+export ledger prizeLiability: Uint<64>;
+witness owner(): Bytes<32>;
+constructor(asset: Bytes<32>) {
+  authority = disclose(persistentHash<Bytes<32>>(owner()));
+  assetContract = disclose(asset);
+  reportedCustody = 0;
+  principalLiability = 0;
+  prizeReserve = 0;
+  prizeLiability = 0;
+}
+export circuit recordSeed(claimedCustody: Uint<64>): [] {
+  assert(disclose(persistentHash<Bytes<32>>(owner()) == authority), "unauthorized");
+  const claimed = disclose(claimedCustody);
+  reportedCustody = claimed;
+  principalLiability = claimed;
+}
+export circuit allocateYield(randomnessAggregate: Uint<64>): [] {
+  // Caller-supplied cross-contract result: nothing binds it to a randomness contract.
+  assert(disclose(randomnessAggregate) > 0, "missing randomness result");
+  prizeLiability = (prizeLiability + 100) as Uint<64>;
+}

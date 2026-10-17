@@ -1,0 +1,19 @@
+pragma language_version >= 0.22 && <= 0.23;
+import CompactStandardLibrary;
+// Separated topology, asset side: holds the shielded reserve; knows nothing of liabilities.
+export ledger authority: Bytes<32>;
+export ledger custody: ShieldedCoinInfo;
+export ledger seeded: Boolean;
+witness owner(): Bytes<32>;
+constructor() {
+  authority = disclose(persistentHash<Bytes<32>>(owner()));
+  seeded = false;
+}
+export circuit seed(): [] {
+  assert(disclose(persistentHash<Bytes<32>>(owner()) == authority), "unauthorized asset release");
+  assert(!seeded, "already seeded");
+  const coin = mintShieldedToken(pad(32,"Shroudly/separated-asset"), 2000000, pad(32,"separated-reserve"), right<ZswapCoinPublicKey, ContractAddress>(kernel.self()));
+  receiveShielded(coin);
+  custody = disclose(coin);
+  seeded = true;
+}
