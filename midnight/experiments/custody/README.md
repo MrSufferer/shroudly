@@ -10,11 +10,35 @@ accounting substitute. Synthetic credentials and coin fixtures are public test
 values and cannot establish network custody. The local prover creates genuine
 proof bytes, but these proofs do not establish finalized ledger acceptance.
 
+Local proving requires Docker and the participant-operated proof server at
+`http://127.0.0.1:6300`. Inspect an existing container before creating another:
+
+```sh
+docker inspect shroudly-preprod-proof-server
+```
+
+If absent, create it with the [#20 runbook's pinned image](../../../docs/operations/preprod-access.md):
+
+```sh
+docker run -d --name shroudly-preprod-proof-server -p 127.0.0.1:6300:6300 midnightntwrk/proof-server@sha256:801bbc0340e9e96f16735f77b523f23c7459e3359842f7c79c2c53f4e994d531
+```
+
+If stopped, use `docker start shroudly-preprod-proof-server`. Before running
+the proof command, check readiness and require the exact response `8.1.0`:
+
+```sh
+curl --fail --silent --show-error --max-time 5 http://127.0.0.1:6300/version
+```
+
+Stop if readiness or version differs; keep proving local. The proof script
+uses this exact loopback URL. Readiness alone does not establish successful proving.
+
 ```sh
 pnpm install --frozen-lockfile
 compact compile midnight/experiments/custody/CustodyProbe.compact midnight/managed/custody-probe
 node --test midnight/experiments/custody/custody.test.mjs
 node --test midnight/experiments/custody/provider-proxy.test.mjs
+node --test midnight/experiments/custody/protected-wallet.test.mjs
 node midnight/experiments/custody/prove-local.mjs
 ```
 
@@ -65,10 +89,11 @@ evidence here.
 `local-proof-result.json` records the source revision, source/artifact hashes,
 proof hashes and measured local proof times. The recorded run produced 4,508-byte
 proofs for seed (1,595 ms) and allocation (858 ms). Withdrawal has generated
-constraint tests but no recorded local proof or finalized spend. Six offline
+constraint tests but no recorded local proof or finalized spend. Seven offline
 tests cover the generated constraints and provider boundary, including rejection
 of HTTP redirects, authenticated HTTP/WebSocket forwarding through token-free
-SDK URLs, and sanitized subprocess failures.
+SDK URLs, sanitized subprocess failures, and rejection of insecure provider
+schemes and nondefault ports before credential access.
 
 The execution profile was Node 24.10.0, Compact CLI 0.5.2/compiler 0.31.1,
 Compact runtime 0.16.0, Midnight JS 4.1.1, wallet SDK 1.2.0, ledger-v8 8.1.0,
