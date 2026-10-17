@@ -1,10 +1,11 @@
 import {fork} from 'node:child_process';
+import * as Rx from 'rxjs';
 import {mkdirSync,mkdtempSync,rmdirSync,writeFileSync,readFileSync,existsSync,chmodSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {setTimeout as sleep} from 'node:timers/promises';
-import {openWalletWithProgress} from './open-wallet.mjs';
+import {openWalletWithProgress,progressOf} from './open-wallet.mjs';
 import {compiledProbe,nodeProviders,indexerFetcher,LOCK} from './journey-env.mjs';
 import {fromHex} from './codec.mjs';
 import {TX_QUERY} from './probe-runtime.mjs';
@@ -40,12 +41,15 @@ async function acquireLock() {
 }
 const releaseLock=()=>{try{rmdirSync(LOCK);}catch{}};
 // Another agent may have spent shared DUST while this process waited for the lock.
-const resync=()=>Promise.race([opened.wallet.waitForSyncedState(),sleep(600000)]).catch(()=>{});
+const resync=()=>Promise.race([opened.wallet.waitForSyncedState().then(()=>true),sleep(600000).then(()=>false)]).catch(()=>false);
+const trace=(stage,data={})=>process.send?.({submitStage:stage,atMs:Date.now()-started,...data});
+const dustView=state=>{try{return {dustPositive:state.dust.balance(new Date())>0n,dustAvailable:(state.dust.availableCoins??[]).length,dustPending:(state.dust.pendingCoins??[]).length};}catch{return {};}};
 
 const opened=await openWalletWithProgress(envPath,{timeoutMs:7_200_000,onProgress:p=>process.send?.({syncProgress:p,atMs:Date.now()-started})})
   .catch(error=>{process.send?.({result:'aborted',abortCategory:'wallet-not-synchronized',stage:error?.stage,attempts:error?.attempts,atMs:Date.now()-started},()=>process.exit(1));return new Promise(()=>{});});
 let dustFunded=null;try{dustFunded=opened.state.dust.balance(new Date())>0n;}catch{}
 step('wallet-synchronized',{fromCache:opened.fromCache,dustFunded});
+opened.wallet.state().pipe(Rx.throttleTime(60000,undefined,{leading:true,trailing:true})).subscribe(state=>{try{process.send?.({walletHealth:{...progressOf(state),...dustView(state)},atMs:Date.now()-started});}catch{}});
 const keys={coinPublicKey:opened.shielded.coinPublicKey,encryptionPublicKey:opened.shielded.encryptionPublicKey};
 const routes={http:opened.configuration.indexerClientConnection.indexerHttpUrl,ws:opened.configuration.indexerClientConnection.indexerWsUrl};
 const providers=await nodeProviders({indexerHttp:routes.http,indexerWs:routes.ws,keys});
@@ -56,8 +60,11 @@ const query=indexerFetcher(routes.http);
 const walletProvider={
   ...providers.walletProvider,
   balanceTx:async(tx,ttl=new Date(Date.now()+30*60*1000))=>{
+    trace('balancing',dustView(await Rx.firstValueFrom(opened.wallet.state())));
     const recipe=await opened.wallet.balanceUnboundTransaction(tx,{shieldedSecretKeys:opened.shielded,dustSecretKey:opened.dust},{ttl});
-    return opened.wallet.finalizeRecipe(recipe);
+    const finalized=await opened.wallet.finalizeRecipe(recipe);
+    trace('balanced');
+    return finalized;
   },
 };
 const shim=()=>{
@@ -81,16 +88,24 @@ async function waitFinal(txId,timeoutMs=900000) {
 async function submitForApp(message,child) {
   const counted={circuit:message.circuit,at:Date.now()-started};
   await acquireLock();
-  await resync();
+  trace('lock-acquired',{circuit:message.circuit});
+  trace('resynced',{synced:await resync()});
+  // Only one shared DUST coin exists: wait (bounded) for its change to be spendable.
+  for(const deadline=Date.now()+600000;Date.now()<deadline;await sleep(10000)) {
+    const view=dustView(await Rx.firstValueFrom(opened.wallet.state()));
+    if(view.dustAvailable>0&&!view.dustPending){trace('dust-ready',view);break;}
+  }
   let handedOff=false,txId;
   try{
     const unprovenTx=ledgerProtocol.Transaction.deserialize('signature','pre-proof','pre-binding',fromHex(message.bytes));
-    const midnightProvider={submitTx:async tx=>{handedOff=true;return opened.wallet.submitTransaction(tx);}};
-    try{txId=await contracts.submitTxAsync({...providers,walletProvider,midnightProvider},{unprovenTx,circuitId:message.circuit});}
-    catch{child.connected&&child.send({id:message.id,error:handedOff?'after-submit':'before-submit'});evidence.submissions.push({...counted,outcome:handedOff?'unknown':'not-submitted'});return;}
+    const midnightProvider={submitTx:async tx=>{handedOff=true;trace('handing-off');return opened.wallet.submitTransaction(tx);}};
+    try{txId=await Promise.race([contracts.submitTxAsync({...providers,walletProvider,midnightProvider},{unprovenTx,circuitId:message.circuit}),sleep(1_200_000).then(()=>{throw Error('submit-timeout');})]);}
+    catch(error){trace('submit-failed',{timeout:error?.message==='submit-timeout',handedOff});child.connected&&child.send({id:message.id,error:handedOff?'after-submit':'before-submit'});evidence.submissions.push({...counted,outcome:handedOff?'unknown':'not-submitted'});return;}
     evidence.submissions.push({...counted,txId,outcome:'handed-off'});
     child.connected&&child.send({id:message.id,txId});
+    trace('handed-off');
     const status=await waitFinal(txId);
+    trace('final',{status});
     evidence.submissions.at(-1).finalStatus=status;
   } finally{releaseLock();}
 }
