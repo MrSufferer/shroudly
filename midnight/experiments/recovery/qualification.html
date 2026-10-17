@@ -1,0 +1,12 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Shroudly recovery qualification (synthetic data only)</title>
+<script type="module">
+  import * as store from './idb-store.mjs';
+  import * as journal from './journal.mjs';
+  import * as writer from './writer-lock.mjs';
+  import * as actions from './actions.mjs';
+  import * as kit from './kit.mjs';
+  window.recovery = { ...store, ...journal, ...writer, ...actions, ...kit };
+  window.recoveryReady = true;
+</script>

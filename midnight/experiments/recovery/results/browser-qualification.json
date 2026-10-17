@@ -1,0 +1,28 @@
+{
+  "format": "shroudly-recovery-browser-qualification-v1",
+  "synthetic": true,
+  "storage": {
+    "indexedDB": true,
+    "strictDurability": true,
+    "webLocks": true,
+    "persistenceRequested": true,
+    "persisted": false,
+    "storageApiPersisted": false,
+    "allowsNewContributions": false,
+    "chrome": "155.0.8059.84"
+  },
+  "writerExclusion": {
+    "sameBrowserSecondTabRejected": true,
+    "releaseAllowsNewWriterAndKeepsUnresolvedAction": true
+  },
+  "abruptKill": {
+    "signal": "SIGKILL",
+    "preparedEntrySurvived": true,
+    "witnessStateSurvived": true
+  },
+  "quotaFailure": {
+    "failedAt": "initialize",
+    "submitted": 0
+  },
+  "checkedAt": "2026-10-17T09:12:18.714Z"
+}

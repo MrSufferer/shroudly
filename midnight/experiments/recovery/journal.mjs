@@ -6,8 +6,8 @@ import {encode,decode,toHex,fromHex} from './codec.mjs';
 export const SCHEMA_VERSION=1;
 const TERMINAL=new Set(['completed','abandoned']);
 const enc=new TextEncoder(),dec=new TextDecoder();
-const b64=bytes=>Buffer.from(bytes).toString('base64');
-const unb64=text=>new Uint8Array(Buffer.from(text,'base64'));
+const b64=bytes=>{let s='';for(let i=0;i<bytes.length;i+=0x8000)s+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(s);};
+const unb64=text=>Uint8Array.from(atob(text),c=>c.charCodeAt(0));
 
 export async function sessionKeyFromKit(kitKeyHex) {
   if(!/^0x[0-9a-fA-F]{64}$/.test(kitKeyHex))throw Error('Recovery Kit key must contain 256 bits');
