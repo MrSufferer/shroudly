@@ -1,0 +1,23 @@
+{
+  "format": "shroudly-recovery-browser-preflight-v1",
+  "network": "preprod",
+  "contract": "9fc51d3510a0244120d98896716314789c361c37368d89523da7c4c23191285c",
+  "startedAt": "2026-10-17T14:04:55.100Z",
+  "steps": [
+    {
+      "name": "no-wallet-connect-refused",
+      "at": "2026-10-17T14:04:55.849Z",
+      "message": "Lace was not found in window.midnight"
+    },
+    {
+      "name": "real-unproven-call-built",
+      "at": "2026-10-17T14:04:57.175Z",
+      "circuit": "register",
+      "unprovenBytes": 935,
+      "expectedRound": "0",
+      "base": "-1"
+    }
+  ],
+  "result": "completed",
+  "finishedAt": "2026-10-17T14:04:57.175Z"
+}

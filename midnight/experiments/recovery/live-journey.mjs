@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {setTimeout as sleep} from 'node:timers/promises';
-import {openWalletWithProgress,progressOf} from './open-wallet.mjs';
+import {openWalletWithProgress} from './open-wallet.mjs';
 import {compiledProbe,nodeProviders,indexerFetcher,LOCK} from './journey-env.mjs';
 import {fromHex} from './codec.mjs';
 import {TX_QUERY} from './probe-runtime.mjs';
@@ -41,7 +41,6 @@ async function acquireLock() {
 }
 const releaseLock=()=>{try{rmdirSync(LOCK);}catch{}};
 // Another agent may have spent shared DUST while this process waited for the lock.
-const resync=()=>Promise.race([opened.wallet.waitForSyncedState().then(()=>true),sleep(600000).then(()=>false)]).catch(()=>false);
 const trace=(stage,data={})=>process.send?.({submitStage:stage,atMs:Date.now()-started,...data});
 const dustView=state=>{try{return {dustPositive:state.dust.balance(new Date())>0n,dustAvailable:(state.dust.availableCoins??[]).length,dustPending:(state.dust.pendingCoins??[]).length};}catch{return {};}};
 
@@ -49,7 +48,6 @@ const opened=await openWalletWithProgress(envPath,{timeoutMs:7_200_000,onProgres
   .catch(error=>{process.send?.({result:'aborted',abortCategory:'wallet-not-synchronized',stage:error?.stage,attempts:error?.attempts,atMs:Date.now()-started},()=>process.exit(1));return new Promise(()=>{});});
 let dustFunded=null;try{dustFunded=opened.state.dust.balance(new Date())>0n;}catch{}
 step('wallet-synchronized',{fromCache:opened.fromCache,dustFunded});
-opened.wallet.state().pipe(Rx.throttleTime(60000,undefined,{leading:true,trailing:true})).subscribe(state=>{try{process.send?.({walletHealth:{...progressOf(state),...dustView(state)},atMs:Date.now()-started});}catch{}});
 const keys={coinPublicKey:opened.shielded.coinPublicKey,encryptionPublicKey:opened.shielded.encryptionPublicKey};
 const routes={http:opened.configuration.indexerClientConnection.indexerHttpUrl,ws:opened.configuration.indexerClientConnection.indexerWsUrl};
 const providers=await nodeProviders({indexerHttp:routes.http,indexerWs:routes.ws,keys});
@@ -57,16 +55,31 @@ const ledgerProtocol=await import('@midnight-ntwrk/midnight-js-protocol/ledger')
 const contracts=await import('@midnight-ntwrk/midnight-js-contracts');
 const query=indexerFetcher(routes.http);
 
-const walletProvider={
+// A wallet session balances only its first transaction: on Preprod a second
+// balance in the same session busy-looped (GC-bound) for >8 min in two runs, so
+// every submission opens a fresh session restored from the owner-only cache.
+// The startup session stays open only for its loopback provider routes.
+await opened.wallet.stop().catch(()=>{});
+const walletProviderFor=session=>({
   ...providers.walletProvider,
   balanceTx:async(tx,ttl=new Date(Date.now()+30*60*1000))=>{
-    trace('balancing',dustView(await Rx.firstValueFrom(opened.wallet.state())));
-    const recipe=await opened.wallet.balanceUnboundTransaction(tx,{shieldedSecretKeys:opened.shielded,dustSecretKey:opened.dust},{ttl});
-    const finalized=await opened.wallet.finalizeRecipe(recipe);
+    trace('balancing',dustView(await Rx.firstValueFrom(session.wallet.state())));
+    const recipe=await session.wallet.balanceUnboundTransaction(tx,{shieldedSecretKeys:session.shielded,dustSecretKey:session.dust},{ttl});
+    const finalized=await session.wallet.finalizeRecipe(recipe);
     trace('balanced');
     return finalized;
   },
-};
+});
+// Opened after taking the lock, so it observes every earlier holder's spend.
+async function signingSession() {
+  const session=await openWalletWithProgress(envPath,{timeoutMs:1_200_000});
+  trace('session-synced',dustView(session.state));
+  for(const deadline=Date.now()+600000;Date.now()<deadline;await sleep(10000)) {
+    const view=dustView(await Rx.firstValueFrom(session.wallet.state()));
+    if(view.dustAvailable>0&&!view.dustPending){trace('dust-ready',view);break;}
+  }
+  return session;
+}
 const shim=()=>{
   const signing=new Map();
   return {setContractAddress(){},setSigningKey:async(a,k)=>{signing.set(a,k);},getSigningKey:async a=>signing.get(a)??null,get:async()=>null,set:async()=>{}};
@@ -89,16 +102,13 @@ async function submitForApp(message,child) {
   const counted={circuit:message.circuit,at:Date.now()-started};
   await acquireLock();
   trace('lock-acquired',{circuit:message.circuit});
-  trace('resynced',{synced:await resync()});
-  // Only one shared DUST coin exists: wait (bounded) for its change to be spendable.
-  for(const deadline=Date.now()+600000;Date.now()<deadline;await sleep(10000)) {
-    const view=dustView(await Rx.firstValueFrom(opened.wallet.state()));
-    if(view.dustAvailable>0&&!view.dustPending){trace('dust-ready',view);break;}
-  }
-  let handedOff=false,txId;
+  let handedOff=false,txId,session;
   try{
+    try{session=await signingSession();}
+    catch{trace('session-failed');child.connected&&child.send({id:message.id,error:'before-submit'});evidence.submissions.push({...counted,outcome:'not-submitted'});return;}
+    const walletProvider=walletProviderFor(session);
     const unprovenTx=ledgerProtocol.Transaction.deserialize('signature','pre-proof','pre-binding',fromHex(message.bytes));
-    const midnightProvider={submitTx:async tx=>{handedOff=true;trace('handing-off');return opened.wallet.submitTransaction(tx);}};
+    const midnightProvider={submitTx:async tx=>{handedOff=true;trace('handing-off');return session.wallet.submitTransaction(tx);}};
     try{txId=await Promise.race([contracts.submitTxAsync({...providers,walletProvider,midnightProvider},{unprovenTx,circuitId:message.circuit}),sleep(1_200_000).then(()=>{throw Error('submit-timeout');})]);}
     catch(error){trace('submit-failed',{timeout:error?.message==='submit-timeout',handedOff});child.connected&&child.send({id:message.id,error:handedOff?'after-submit':'before-submit'});evidence.submissions.push({...counted,outcome:handedOff?'unknown':'not-submitted'});return;}
     evidence.submissions.push({...counted,txId,outcome:'handed-off'});
@@ -107,7 +117,7 @@ async function submitForApp(message,child) {
     const status=await waitFinal(txId);
     trace('final',{status});
     evidence.submissions.at(-1).finalStatus=status;
-  } finally{releaseLock();}
+  } finally{await session?.close();releaseLock();}
 }
 
 function app(config) {
@@ -127,13 +137,15 @@ const record=(name,result)=>{step(name,{exit:result.exit,failed:result.failed,ou
 
 async function deploy() {
   await acquireLock();
-  await resync();
+  let session;
   try{
+    session=await signingSession();
+    const walletProvider=walletProviderFor(session);
     const compiledContract=await compiledProbe();
-    const midnightProvider={submitTx:tx=>opened.wallet.submitTransaction(tx)};
+    const midnightProvider={submitTx:tx=>session.wallet.submitTransaction(tx)};
     const deployed=await contracts.deployContract({...providers,walletProvider,midnightProvider,privateStateProvider:shim()},{compiledContract,args:[]});
     return {address:deployed.deployTxData.public.contractAddress,txId:deployed.deployTxData.public.txId};
-  } finally{releaseLock();}
+  } finally{await session?.close();releaseLock();}
 }
 
 try{

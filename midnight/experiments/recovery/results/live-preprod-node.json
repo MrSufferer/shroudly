@@ -1,0 +1,284 @@
+{
+  "format": "shroudly-recovery-live-preprod-node-v1",
+  "network": "preprod",
+  "participantApp": "node (not Lace)",
+  "walletService": "protected wallet in this parent process",
+  "startedAt": "2026-10-17T13:58:05.124Z",
+  "steps": [
+    {
+      "name": "wallet-synchronized",
+      "atMs": 126879,
+      "fromCache": true,
+      "dustFunded": true
+    },
+    {
+      "name": "deployed",
+      "atMs": 152242,
+      "contract": "9fc51d3510a0244120d98896716314789c361c37368d89523da7c4c23191285c",
+      "txId": "0061ca7e3bce610a3482e7411f837ea4961447719de63f116f479d8497ae83081d"
+    },
+    {
+      "name": "init-alice",
+      "atMs": 152948,
+      "exit": 0,
+      "outcome": {
+        "cmd": "init",
+        "name": "alice",
+        "generation": "0",
+        "journal": {
+          "generation": "0",
+          "privateRound": "0",
+          "unresolved": []
+        },
+        "ledger": {
+          "round": "-1",
+          "registered": false
+        },
+        "fresh": true
+      }
+    },
+    {
+      "name": "register",
+      "atMs": 153814,
+      "exit": 1,
+      "failed": "type error: secretKey return value at RecoveryProbe.compact line 16 char 1; expected value of type Bytes<32> but receive"
+    },
+    {
+      "name": "export-kit-after-register",
+      "atMs": 154387,
+      "exit": 0,
+      "outcome": {
+        "cmd": "export-kit",
+        "name": "alice",
+        "journal": {
+          "generation": "0",
+          "privateRound": "0",
+          "unresolved": []
+        },
+        "ledger": {
+          "round": "-1",
+          "registered": false
+        },
+        "fresh": true
+      }
+    },
+    {
+      "name": "crash-before-submission",
+      "atMs": 155370,
+      "exit": 1,
+      "failed": "type error: secretKey return value at RecoveryProbe.compact line 16 char 1; expected value of type Bytes<32> but receive"
+    },
+    {
+      "name": "restart-reconcile-original",
+      "atMs": 155941,
+      "exit": 0,
+      "outcome": {
+        "cmd": "reconcile",
+        "name": "alice",
+        "results": [],
+        "journal": {
+          "generation": "0",
+          "privateRound": "0",
+          "unresolved": []
+        },
+        "ledger": {
+          "round": "-1",
+          "registered": false
+        },
+        "fresh": true
+      }
+    },
+    {
+      "name": "crash-during-observation",
+      "atMs": 156799,
+      "exit": 1,
+      "failed": "type error: secretKey return value at RecoveryProbe.compact line 16 char 1; expected value of type Bytes<32> but receive"
+    },
+    {
+      "name": "restart-reconcile-observed",
+      "atMs": 157370,
+      "exit": 0,
+      "outcome": {
+        "cmd": "reconcile",
+        "name": "alice",
+        "results": [],
+        "journal": {
+          "generation": "0",
+          "privateRound": "0",
+          "unresolved": []
+        },
+        "ledger": {
+          "round": "-1",
+          "registered": false
+        },
+        "fresh": true
+      }
+    },
+    {
+      "name": "crash-after-finality",
+      "atMs": 158307,
+      "exit": 1,
+      "failed": "type error: secretKey return value at RecoveryProbe.compact line 16 char 1; expected value of type Bytes<32> but receive"
+    },
+    {
+      "name": "restart-reconcile-persist",
+      "atMs": 158879,
+      "exit": 0,
+      "outcome": {
+        "cmd": "reconcile",
+        "name": "alice",
+        "results": [],
+        "journal": {
+          "generation": "0",
+          "privateRound": "0",
+          "unresolved": []
+        },
+        "ledger": {
+          "round": "-1",
+          "registered": false
+        },
+        "fresh": true
+      }
+    },
+    {
+      "name": "crash-during-handoff",
+      "atMs": 159750,
+      "exit": 1,
+      "failed": "type error: secretKey return value at RecoveryProbe.compact line 16 char 1; expected value of type Bytes<32> but receive"
+    },
+    {
+      "name": "restart-reconcile-handoff",
+      "atMs": 160333,
+      "exit": 0,
+      "outcome": {
+        "cmd": "reconcile",
+        "name": "alice",
+        "results": [],
+        "journal": {
+          "generation": "0",
+          "privateRound": "0",
+          "unresolved": []
+        },
+        "ledger": {
+          "round": "-1",
+          "registered": false
+        },
+        "fresh": true
+      }
+    },
+    {
+      "name": "export-kit-current",
+      "atMs": 160960,
+      "exit": 0,
+      "outcome": {
+        "cmd": "export-kit",
+        "name": "alice",
+        "journal": {
+          "generation": "0",
+          "privateRound": "0",
+          "unresolved": []
+        },
+        "ledger": {
+          "round": "-1",
+          "registered": false
+        },
+        "fresh": true
+      }
+    },
+    {
+      "name": "restore-current-kit-fresh-profile",
+      "atMs": 161559,
+      "exit": 0,
+      "outcome": {
+        "cmd": "restore-kit",
+        "name": "alice-restored",
+        "journal": {
+          "generation": "0",
+          "privateRound": "0",
+          "unresolved": []
+        },
+        "ledger": {
+          "round": "-1",
+          "registered": false
+        },
+        "fresh": true
+      }
+    },
+    {
+      "name": "advance-from-restored-kit",
+      "atMs": 162493,
+      "exit": 1,
+      "failed": "type error: secretKey return value at RecoveryProbe.compact line 16 char 1; expected value of type Bytes<32> but receive"
+    },
+    {
+      "name": "restore-older-kit-is-stale",
+      "atMs": 163086,
+      "exit": 0,
+      "outcome": {
+        "cmd": "restore-kit",
+        "name": "alice-stale",
+        "journal": {
+          "generation": "0",
+          "privateRound": "0",
+          "unresolved": []
+        },
+        "ledger": {
+          "round": "-1",
+          "registered": false
+        },
+        "fresh": true
+      }
+    },
+    {
+      "name": "stale-kit-cannot-act",
+      "atMs": 164147,
+      "exit": 1,
+      "failed": "type error: secretKey return value at RecoveryProbe.compact line 16 char 1; expected value of type Bytes<32> but receive"
+    },
+    {
+      "name": "init-bob-same-deployment",
+      "atMs": 164728,
+      "exit": 0,
+      "outcome": {
+        "cmd": "init",
+        "name": "bob",
+        "generation": "0",
+        "journal": {
+          "generation": "0",
+          "privateRound": "0",
+          "unresolved": []
+        },
+        "ledger": {
+          "round": "-1",
+          "registered": false
+        },
+        "fresh": true
+      }
+    },
+    {
+      "name": "bob-unregistered-while-alice-registered",
+      "atMs": 165303,
+      "exit": 0,
+      "outcome": {
+        "cmd": "reconcile",
+        "name": "bob",
+        "results": [],
+        "journal": {
+          "generation": "0",
+          "privateRound": "0",
+          "unresolved": []
+        },
+        "ledger": {
+          "round": "-1",
+          "registered": false
+        },
+        "fresh": true
+      }
+    }
+  ],
+  "submissions": [],
+  "deployment": "9fc51d3510a0244120d98896716314789c361c37368d89523da7c4c23191285c",
+  "deploymentTx": "0061ca7e3bce610a3482e7411f837ea4961447719de63f116f479d8497ae83081d",
+  "result": "completed",
+  "finishedAt": "2026-10-17T14:00:50.428Z"
+}
