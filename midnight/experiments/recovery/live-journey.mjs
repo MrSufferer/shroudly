@@ -15,14 +15,22 @@ import {TX_QUERY} from './probe-runtime.mjs';
 // discarded; nothing here prints URLs, keys, secrets or SDK errors.
 //
 // usage: node live-journey.mjs <protected-env-file> [stateDir]
-const [,,envPath,stateArg]=process.argv;
+// Supervisor: run the journey in a worker whose stdio is discarded, because SDK
+// dependencies log connection URLs and errors. Only explicit IPC projections print.
+if(process.argv[2]!=='--worker') {
+  const worker=fork(fileURLToPath(import.meta.url),['--worker',...process.argv.slice(2)],{stdio:['ignore','ignore','ignore','ipc']});
+  worker.on('message',message=>console.log(JSON.stringify(message)));
+  worker.on('exit',(code,signal)=>{console.log(JSON.stringify({workerExit:signal??code}));process.exit(code??1);});
+  await new Promise(()=>{});
+}
+const [,,,envPath,stateArg]=process.argv;
 if(!envPath)throw Error('Pass the protected local environment file path');
 const stateDir=stateArg??mkdtempSync(join(tmpdir(),'shroudly-recovery-journey-'));
 mkdirSync(stateDir,{recursive:true,mode:0o700});chmodSync(stateDir,0o700);
 const here=fileURLToPath(new URL('.',import.meta.url));
 const evidence={format:'shroudly-recovery-live-preprod-node-v1',network:'preprod',participantApp:'node (not Lace)',walletService:'protected wallet in this parent process',startedAt:new Date().toISOString(),steps:[],submissions:[]};
 const started=Date.now();
-const step=(name,data={})=>{evidence.steps.push({name,atMs:Date.now()-started,...data});};
+const step=(name,data={})=>{const entry={name,atMs:Date.now()-started,...data};evidence.steps.push(entry);process.send?.(JSON.parse(JSON.stringify(entry,(_,v)=>typeof v==='bigint'?v.toString():v)));};
 
 async function acquireLock() {
   for(;;) {
@@ -31,7 +39,8 @@ async function acquireLock() {
 }
 const releaseLock=()=>{try{rmdirSync(LOCK);}catch{}};
 
-const opened=await openWalletWithProgress(envPath,{timeoutMs:3_000_000});
+const opened=await openWalletWithProgress(envPath,{timeoutMs:7_200_000,onProgress:p=>process.send?.({syncProgress:p,atMs:Date.now()-started})})
+  .catch(error=>{process.send?.({result:'aborted',abortCategory:'wallet-not-synchronized',stage:error?.stage,attempts:error?.attempts,atMs:Date.now()-started},()=>process.exit(1));return new Promise(()=>{});});
 step('wallet-synchronized');
 const keys={coinPublicKey:opened.shielded.coinPublicKey,encryptionPublicKey:opened.shielded.encryptionPublicKey};
 const routes={http:opened.configuration.indexerClientConnection.indexerHttpUrl,ws:opened.configuration.indexerClientConnection.indexerWsUrl};
@@ -151,6 +160,6 @@ try{
   const out=join(here,'results','live-preprod-node.json');
   mkdirSync(join(here,'results'),{recursive:true});
   writeFileSync(out,JSON.stringify(evidence,(_,v)=>typeof v==='bigint'?v.toString():v,2)+'\n');
-  console.log(JSON.stringify({result:evidence.result,steps:evidence.steps.length,stateDir}));
+  process.send?.({result:evidence.result,abortCategory:evidence.abortCategory,steps:evidence.steps.length,stateDir});
   process.exit(evidence.result==='completed'?0:1);
 }

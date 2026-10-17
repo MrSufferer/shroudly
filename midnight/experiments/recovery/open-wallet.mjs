@@ -28,22 +28,38 @@ export async function openWalletWithProgress(path,{timeoutMs=1_800_000,onProgres
   configuration.indexerClientConnection={indexerHttpUrl:proxy.http,indexerWsUrl:proxy.ws};
   let wallet;
   const close=async()=>{try{await Promise.race([wallet?.stop(),new Promise(r=>setTimeout(r,10000))]);}catch{}await proxy.close();};
-  try{
-    wallet=await sdk.WalletFacade.init({configuration,
-      shielded:cfg=>sdk.ShieldedWallet(cfg).startWithSecretKeys(shielded),
-      unshielded:cfg=>sdk.UnshieldedWallet(cfg).startWithPublicKey(sdk.PublicKey.fromKeyStore(keystore)),
-      dust:cfg=>sdk.DustWallet(cfg).startWithSecretKey(dust,ledger.LedgerParameters.initialParameters().dust),
-    });
-    await wallet.start(shielded,dust);
-    const subscription=wallet.state().pipe(Rx.throttleTime(15000,undefined,{leading:true,trailing:true})).subscribe(state=>{try{onProgress(progressOf(state));}catch{}});
-    let timer;
-    const state=await Promise.race([
-      wallet.waitForSyncedState(),
-      new Promise((_,reject)=>{timer=setTimeout(()=>reject(Object.assign(Error('sync timeout'),{stage:'synchronization'})),timeoutMs);}),
-    ]).finally(()=>{clearTimeout(timer);subscription.unsubscribe();});
-    return {wallet,shielded,dust,keystore,configuration,state,proxy,close};
-  }catch(error){
-    await close();
-    throw Object.assign(Error('protected wallet did not synchronize'),{stage:error?.stage??'initialization'});
+  // Provider WebSockets drop during long syncs. Sub-wallet state is checkpointed
+  // in memory only (it is sensitive) and restored on reconnect so progress survives.
+  const checkpoint={};
+  const deadline=Date.now()+timeoutMs;
+  for(let attempt=1;;attempt+=1) {
+    let saver,subscription,timer;
+    try{
+      wallet=await sdk.WalletFacade.init({configuration,
+        shielded:cfg=>checkpoint.shielded?sdk.ShieldedWallet(cfg).restore(checkpoint.shielded):sdk.ShieldedWallet(cfg).startWithSecretKeys(shielded),
+        unshielded:cfg=>checkpoint.unshielded?sdk.UnshieldedWallet(cfg).restore(checkpoint.unshielded):sdk.UnshieldedWallet(cfg).startWithPublicKey(sdk.PublicKey.fromKeyStore(keystore)),
+        dust:cfg=>checkpoint.dust?sdk.DustWallet(cfg).restore(checkpoint.dust):sdk.DustWallet(cfg).startWithSecretKey(dust,ledger.LedgerParameters.initialParameters().dust),
+      });
+      await wallet.start(shielded,dust);
+      subscription=wallet.state().pipe(Rx.throttleTime(15000,undefined,{leading:true,trailing:true})).subscribe(state=>{try{onProgress({attempt,...progressOf(state)});}catch{}});
+      const current=wallet;
+      saver=setInterval(async()=>{
+        for(const part of ['shielded','unshielded','dust']){try{checkpoint[part]=await current[part].serializeState();}catch{}}
+      },60000);
+      const state=await Promise.race([
+        wallet.waitForSyncedState(),
+        new Promise((_,reject)=>{timer=setTimeout(()=>reject(Object.assign(Error('sync timeout'),{stage:'synchronization',final:true})),Math.max(0,deadline-Date.now()));}),
+      ]);
+      return {wallet,shielded,dust,keystore,configuration,state,proxy,close};
+    }catch(error){
+      try{await Promise.race([wallet?.stop(),new Promise(r=>setTimeout(r,10000))]);}catch{}
+      wallet=undefined;
+      if(error?.final||attempt>=12||Date.now()>=deadline){
+        await proxy.close();
+        throw Object.assign(Error('protected wallet did not synchronize'),{stage:error?.stage??'synchronization',attempts:attempt});
+      }
+      onProgress({attempt,reconnecting:true});
+      await new Promise(r=>setTimeout(r,15000));
+    }finally{clearInterval(saver);clearTimeout(timer);subscription?.unsubscribe();}
   }
 }
