@@ -8,6 +8,7 @@ import {emit} from './isolated.mjs';
 import {openStagedWallet, errorClass} from './wallet.mjs';
 import {clientFor} from './provider.mjs';
 import {ownerSecret, slotSecret} from './synthetic.mjs';
+import {forgingContract} from './forging.mjs';
 
 const MANAGED = new URL('../../managed/timing-probe/', import.meta.url);
 const LOCK = '/tmp/shroudly-wallet.lock';
@@ -74,26 +75,8 @@ export async function openSession(envPath) {
   const zkModule = await import('@midnight-ntwrk/midnight-js-node-zk-config-provider');
   const module = await import(pathToFileURL(join(MANAGED.pathname, 'contract/index.js')).href);
 
-  // The only place a browser/caller clock could enter: the circuit's local block
-  // time. Forgery overrides it for the local evaluation that precedes proving,
-  // exactly as a dishonest client clock would. The network never sees this value.
   const control = {forgedSeconds: undefined, slot: 0, gate: undefined};
-  class ForgingContract extends module.Contract {
-    constructor(witnesses) {
-      super(witnesses);
-      for (const table of [this.circuits, this.impureCircuits]) {
-        for (const [name, circuit] of Object.entries(table)) {
-          if (!['commit', 'reveal', 'finalize', 'pause', 'resume', 'claim'].includes(name)) continue;
-          table[name] = (context, ...args) => {
-            if (control.forgedSeconds !== undefined) {
-              context.currentQueryContext.block = {...context.currentQueryContext.block, secondsSinceEpoch: BigInt(control.forgedSeconds)};
-            }
-            return circuit(context, ...args);
-          };
-        }
-      }
-    }
-  }
+  const ForgingContract = forgingContract(module.Contract, control);
   const witnesses = {owner: ctx => [ctx.privateState, ownerSecret()], secret: ctx => [ctx.privateState, slotSecret(control.slot)]};
   const attach = (fn, self, value) => { try { return fn(self, value); } catch { return fn(value)(self); } };
   let compiled = compact.CompiledContract.make('TimingProbe', ForgingContract);
