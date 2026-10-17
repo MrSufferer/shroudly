@@ -12,7 +12,7 @@ const args = process.argv.slice(2);
 const offline = args.includes('--offline');
 const requestedTimeout = Number(args[args.indexOf('--timeout') + 1]);
 const timeout = args.includes('--timeout') && Number.isInteger(requestedTimeout) && requestedTimeout >= 100 && requestedTimeout <= 10000 ? requestedTimeout : 3000;
-const names = ['MIDNIGHT_DEPLOYER_SECRET_NAME', 'MIDNIGHT_KEYCHAIN_ACCOUNT', 'MIDNIGHT_PRIVATE_STATE_PASSWORD_NAME', 'MIDNIGHT_PROOF_SERVER_URL', 'MIDNIGHT_INDEXER_HTTP_URL', 'MIDNIGHT_INDEXER_WS_URL', 'MIDNIGHT_RPC_URL', 'VITE_SHROUDLY_DEPLOYMENT_ID', 'VITE_SHROUDLY_RPC_URL', 'VITE_SHROUDLY_INDEXER_URL', 'VITE_SHROUDLY_ZK_CONFIG_URL', 'VITE_SHROUDLY_SPONSOR_URL'];
+const names = ['MIDNIGHT_DEPLOYER_SECRET_NAME', 'MIDNIGHT_KEYCHAIN_ACCOUNT', 'MIDNIGHT_PRIVATE_STATE_PASSWORD_NAME', 'MIDNIGHT_BLOCKFROST_SECRET_NAME', 'MIDNIGHT_PROOF_SERVER_URL', 'MIDNIGHT_INDEXER_HTTP_URL', 'MIDNIGHT_INDEXER_WS_URL', 'MIDNIGHT_RPC_URL', 'VITE_SHROUDLY_DEPLOYMENT_ID', 'VITE_SHROUDLY_RPC_URL', 'VITE_SHROUDLY_INDEXER_URL', 'VITE_SHROUDLY_ZK_CONFIG_URL', 'VITE_SHROUDLY_SPONSOR_URL'];
 const variables = Object.fromEntries(names.map(name => [name, Boolean(process.env[name]?.trim())]));
 const checks = [{ name: 'wallet-funding', status: 'unverified', detail: 'Requires authorized wallet synchronization and genuine read-only balance validation; no wallet secrets are read.' }];
 for (const [name, variable, prefixVariable, fallback] of [
@@ -26,7 +26,7 @@ for (const [name, variable, prefixVariable, fallback] of [
 }
 const browser = inspectBrowser();
 checks.push({ name: 'chrome-installed', status: browser.chrome ? 'pass' : 'blocked', detail: browser.chrome ? `Installed Chrome version ${browser.chrome}; observed only, not qualified.` : 'Desktop Chrome metadata was not detected.' });
-checks.push({ name: 'lace-installed', status: browser.lace.length ? 'pass' : 'blocked', detail: browser.lace.length ? 'Lace extension manifest detected; account authorization and supported version remain unverified.' : 'Lace extension manifest not detected in standard Chrome profiles; custom profiles require private inspection.' });
+checks.push({ name: 'lace-installed', status: browser.lace.length ? 'pass' : 'blocked', detail: browser.lace.length ? 'Lace extension manifest detected; account authorization and supported version remain unverified.' : 'Lace extension manifest not detected; select the authorized Chrome user data directory or inspect privately.' });
 checks.push({ name: 'browser-qualification', status: 'unverified', detail: 'Requires an approved exact Chrome/Lace pair and a genuine participant-operated browser lifecycle experiment.' });
 checks.push({ name: 'required-configuration', status: Object.values(variables).every(Boolean) ? 'pass' : 'blocked', detail: 'Presence only; values are never printed. Contract IDs and artifact hashes are populated after genuine deployment.' });
 if (offline) checks.push({ name: 'github-repository', status: 'unverified', detail: 'Provider metadata checks disabled offline.' });
@@ -44,16 +44,20 @@ try { projectAccessible = vercel?.ok && typeof JSON.parse(vercel.output).id === 
 checks.push({ name: 'vercel-project', status: projectAccessible ? 'pass' : 'unverified', detail: projectAccessible ? 'Linked project metadata readable; Operator must separately validate Preprod isolation, ownership, deployment and domain/DNS permissions.' : 'Project access not established; Operator must link the separate authorized Preprod project and validate deployment and domain/DNS permissions.' });
 checks.push({ name: 'provider-authorization', status: 'unverified', detail: 'Repository access and readable project metadata do not establish environment, deployment, ownership or DNS authorization.' });
 checks.push({ name: 'network-versions', status: 'unverified', detail: 'Protocol reachability does not establish the pinned node/indexer versions; genuine compatibility qualification is outstanding.' });
+let blockfrostToken;
+let blockfrostRead = false;
 for (const [name, variable, local] of [['indexer-http', 'MIDNIGHT_INDEXER_HTTP_URL', false], ['indexer-ws', 'MIDNIGHT_INDEXER_WS_URL', false], ['rpc', 'MIDNIGHT_RPC_URL', false], ['local-prover', 'MIDNIGHT_PROOF_SERVER_URL', true]]) {
   const url = endpoint(process.env[variable], local, name);
   if (!url) checks.push({ name, status: 'blocked', detail: 'Endpoint missing or unsafe; credentials, query strings and fragments are forbidden; prover must be loopback.' });
   else if (offline) checks.push({ name, status: 'unverified', detail: 'Network probe disabled in offline mode.' });
+  else if (officialBlockfrost(url, name) && !readBlockfrostToken()) checks.push({ name, status: 'blocked', detail: 'Private Blockfrost authorization is missing or inaccessible; no network probe was sent.' });
   else {
     const observation = {};
     try {
       let valid = false;
-      if (name === 'indexer-ws') valid = await websocket(url, 'graphql-transport-ws');
-      else if (name === 'rpc' && ['ws:', 'wss:'].includes(url.protocol)) valid = await websocket(url);
+      const token = officialBlockfrost(url, name) ? blockfrostToken : undefined;
+      if (name === 'indexer-ws') valid = await websocket(url, 'graphql-transport-ws', token);
+      else if (name === 'rpc' && ['ws:', 'wss:'].includes(url.protocol)) valid = await websocket(url, undefined, token);
       else if (name === 'local-prover') {
         const versionUrl = new URL(url);
         versionUrl.pathname = `${versionUrl.pathname.replace(/\/$/, '')}/version`;
@@ -62,7 +66,7 @@ for (const [name, variable, local] of [['indexer-http', 'MIDNIGHT_INDEXER_HTTP_U
         const version = body.trim().replace(/^"|"$/g, '');
         checks.push({ name: 'proof-version', status: version === profile.proofServer ? 'pass' : 'unverified', detail: version === profile.proofServer ? `Observed pinned proof server ${profile.proofServer}.` : 'Response did not establish the exact pinned proof server version.' });
       } else {
-        const data = JSON.parse(await request(url, name === 'rpc' ? { jsonrpc: '2.0', id: 1, method: 'system_chain', params: [] } : { query: 'query AccessReadiness { __typename }' }, observation));
+        const data = JSON.parse(await request(url, name === 'rpc' ? { jsonrpc: '2.0', id: 1, method: 'system_chain', params: [] } : { query: 'query AccessReadiness { __typename }' }, observation, token));
         valid = name === 'rpc' ? data.jsonrpc === '2.0' && data.id === 1 && data.result === 'Midnight Preprod' && !data.error : typeof data.data?.__typename === 'string' && /^[A-Za-z_][A-Za-z_0-9]*$/.test(data.data.__typename) && !data.errors;
       }
       checks.push({ name, status: valid ? 'pass' : 'blocked', ...observation, detail: valid ? 'Read-only protocol response validated; this does not establish compatibility or finality.' : 'Response did not validate the expected protocol or Preprod chain.' });
@@ -71,6 +75,8 @@ for (const [name, variable, local] of [['indexer-http', 'MIDNIGHT_INDEXER_HTTP_U
     }
   }
 }
+checks.push({ name: 'blockfrost-authorization', status: blockfrostToken ? 'pass' : offline ? 'unverified' : 'blocked', detail: blockfrostToken ? 'Private credential available for exact official Preprod endpoints only; protocol checks establish whether requests are accepted.' : offline ? 'Offline mode does not read the Blockfrost token.' : 'No private Blockfrost credential established for an approved network probe.' });
+blockfrostToken = undefined;
 if (!checks.some(check => check.name === 'proof-version')) checks.push({ name: 'proof-version', status: 'unverified', detail: 'Exact local proof server version was not observed.' });
 const report = { format: 'shroudly-preprod-access-v1', checkedAt: new Date().toISOString(), candidateProfile, browser, variables, checks, accessReady: false, qualification: 'outstanding', recovery: 'See docs/operations/preprod-access.md; Operator owns credential, funding, browser, prover and provider authorization blockers.' };
 // Native WebSocket has no force-close API. A peer may ignore the close frame;
@@ -86,8 +92,29 @@ function endpoint(value, local, name) {
     if (!['https:', 'wss:', ...(loopback ? ['http:', 'ws:'] : [])].includes(url.protocol)) return null;
     if (['indexer-http', 'local-prover'].includes(name) && !['https:', 'http:'].includes(url.protocol)) return null;
     if (name === 'indexer-ws' && !['wss:', 'ws:'].includes(url.protocol)) return null;
+    // Never let a provider credential be sent to caller-selected hosts or paths.
+    if (!local && (process.env.MIDNIGHT_BLOCKFROST_SECRET_NAME || url.hostname.endsWith('blockfrost.io')) && !officialBlockfrost(url, name)) return null;
     return url;
   } catch { return null; }
+}
+
+function officialBlockfrost(url, name) {
+  if (url.port || url.username || url.password || url.search || url.hash) return false;
+  if (name === 'indexer-http') return url.protocol === 'https:' && url.hostname === 'midnight-preprod.blockfrost.io' && url.pathname === '/api/v0';
+  if (name === 'indexer-ws') return url.protocol === 'wss:' && url.hostname === 'midnight-preprod.blockfrost.io' && url.pathname === '/api/v0/ws';
+  return name === 'rpc' && ['https:', 'wss:'].includes(url.protocol) && url.hostname === 'rpc.midnight-preprod.blockfrost.io' && url.pathname === '/';
+}
+
+function readBlockfrostToken() {
+  if (blockfrostRead || offline) return blockfrostToken;
+  blockfrostRead = true;
+  const service = process.env.MIDNIGHT_BLOCKFROST_SECRET_NAME;
+  const account = process.env.MIDNIGHT_KEYCHAIN_ACCOUNT;
+  if (!service || !account) return undefined;
+  const result = command('/usr/bin/security', ['find-generic-password', '-a', account, '-s', service, '-w']);
+  const token = result.output.trim();
+  if (result.ok && /^[A-Za-z0-9._-]{1,512}$/.test(token)) blockfrostToken = token;
+  return blockfrostToken;
 }
 
 function command(executable, argv, capture = true) {
@@ -104,7 +131,7 @@ function inspectBrowser() {
     if (chrome) break;
   }
   const lace = new Set();
-  const base = join(homedir(), 'Library/Application Support/Google/Chrome');
+  const base = process.env.MIDNIGHT_CHROME_USER_DATA_DIR || join(homedir(), 'Library/Application Support/Google/Chrome');
   try {
     for (const profileName of readdirSync(base).filter(name => name === 'Default' || /^Profile \d+$/.test(name))) {
       const extensions = join(base, profileName, 'Extensions');
@@ -123,8 +150,8 @@ function inspectBrowser() {
   return { chrome, lace: [...lace].sort(), supportedPair: 'unqualified' };
 }
 
-async function request(url, body, observation) {
-  const response = await fetch(url, { method: body ? 'POST' : 'GET', redirect: 'error', signal: AbortSignal.timeout(timeout), headers: { accept: 'application/json, text/plain', ...(body ? { 'content-type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
+async function request(url, body, observation, token) {
+  const response = await fetch(url, { method: body ? 'POST' : 'GET', redirect: 'error', signal: AbortSignal.timeout(timeout), headers: { accept: 'application/json, text/plain', ...(body ? { 'content-type': 'application/json' } : {}), ...(token ? { project_id: token } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
   observation.httpStatus = response.status;
   if (!response.ok) { await response.body?.cancel(); throw new Error('http'); }
   const reader = response.body.getReader();
@@ -140,9 +167,11 @@ async function request(url, body, observation) {
   } finally { await reader.cancel().catch(() => {}); }
 }
 
-function websocket(url, protocol) {
+function websocket(url, protocol, token) {
   return new Promise((resolve, reject) => {
-    const socket = protocol ? new WebSocket(url, protocol) : new WebSocket(url);
+    const authenticatedUrl = new URL(url);
+    if (token) authenticatedUrl.searchParams.set('project_id', token);
+    const socket = protocol ? new WebSocket(authenticatedUrl, protocol) : new WebSocket(authenticatedUrl);
     const timer = setTimeout(() => finish(false), timeout);
     let finished = false;
     function finish(ok) { if (finished) return; finished = true; clearTimeout(timer); socket.close(); resolve(ok); }

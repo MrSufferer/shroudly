@@ -4,6 +4,9 @@ import { spawnSync } from 'node:child_process';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const cli = new URL('./preprod-access.mjs', import.meta.url);
 function run(args = [], env = {}) {
@@ -23,6 +26,42 @@ test('offline inspection reports missing human evidence and never qualifies the 
   assert.equal(result.report.checks.find(c => c.name === 'keychain-deployer').status, 'blocked');
   assert.equal(result.report.checks.find(c => c.name === 'browser-qualification').status, 'unverified');
   assert.equal(result.report.candidateProfile.ledgerV8, '8.1.0');
+});
+test('official Blockfrost endpoints require private authorization before network probing', () => {
+  const result = run([], {
+    MIDNIGHT_INDEXER_HTTP_URL: 'https://midnight-preprod.blockfrost.io/api/v0',
+    MIDNIGHT_INDEXER_WS_URL: 'wss://midnight-preprod.blockfrost.io/api/v0/ws',
+    MIDNIGHT_RPC_URL: 'https://rpc.midnight-preprod.blockfrost.io',
+  });
+  for (const name of ['indexer-http', 'indexer-ws', 'rpc']) {
+    const check = result.report.checks.find(c => c.name === name);
+    assert.equal(check.status, 'blocked');
+    assert.match(check.detail, /authorization/);
+    assert.equal(check.httpStatus, undefined);
+  }
+  assert.equal(result.report.checks.find(c => c.name === 'blockfrost-authorization').status, 'blocked');
+});
+test('rejects credential forwarding to unapproved hosts, paths or user-supplied auth queries', () => {
+  for (const target of ['https://midnight-preprod.blockfrost.io.attacker.invalid/api/v0', 'https://midnight-preprod.blockfrost.io/api/v0/other', 'https://midnight-preprod.blockfrost.io/api/v0?project_id=NEVER-PRINT']) {
+    const result = run([], { MIDNIGHT_BLOCKFROST_SECRET_NAME: 'NONEXISTENT-TEST-REFERENCE', MIDNIGHT_KEYCHAIN_ACCOUNT: 'NONEXISTENT-TEST-ACCOUNT', MIDNIGHT_INDEXER_HTTP_URL: target });
+    const check = result.report.checks.find(c => c.name === 'indexer-http');
+    assert.equal(check.status, 'blocked');
+    assert.match(check.detail, /unsafe/);
+    assert.equal(result.stdout.includes('NEVER-PRINT'), false);
+    assert.equal(result.stdout.includes('NONEXISTENT'), false);
+  }
+});
+test('detects Lace manifest versions in an explicitly selected Chrome user data directory without exposing its path', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'shroudly-chrome-test-'));
+  try {
+    const installed = join(directory, 'Default/Extensions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/2.4.2');
+    mkdirSync(installed, { recursive: true });
+    writeFileSync(join(installed, 'manifest.json'), JSON.stringify({ name: 'Midnight Lace', version: '2.4.2' }));
+    const result = run(['--offline'], { MIDNIGHT_CHROME_USER_DATA_DIR: directory, MIDNIGHT_BLOCKFROST_SECRET_NAME: 'NONEXISTENT-TEST-REFERENCE' });
+    assert.deepEqual(result.report.browser.lace, ['2.4.2']);
+    assert.equal(result.stdout.includes(directory), false);
+    assert.equal(result.report.checks.find(c => c.name === 'blockfrost-authorization').status, 'unverified');
+  } finally { rmSync(directory, { recursive: true, force: true }); }
 });
 test('requires a WebSocket protocol acknowledgement and rejects successful HTTP error payloads', async () => {
   const server = createServer((req, res) => res.end(JSON.stringify({ errors: [{ message: 'PRIVATE-REMOTE-ERROR' }] })));
