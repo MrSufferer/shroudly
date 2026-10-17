@@ -14,6 +14,7 @@ proof bytes, but these proofs do not establish finalized ledger acceptance.
 pnpm install --frozen-lockfile
 compact compile midnight/experiments/custody/CustodyProbe.compact midnight/managed/custody-probe
 node --test midnight/experiments/custody/custody.test.mjs
+node --test midnight/experiments/custody/provider-proxy.test.mjs
 node midnight/experiments/custody/prove-local.mjs
 ```
 
@@ -53,6 +54,30 @@ See the runbook's existing Operator-owned provider rotation procedure.
 | --- | --- | --- |
 | Existing separated contracts | Source pins dependency IDs, but pool accepts `randomnessAggregate` as caller input; yield initializes an unbacked reserve counter. | Authenticated result provenance and reconciled enforceable shielded custody; source imports and batching cannot supply either. |
 | Isolated co-located probe | Generated constraints and local proofs exercise mint/receive, registered openings, segregation, one-shot allocation; generated withdrawal constraints preserve change. | Genuine finalized mint/receive/spend, fresh indexer reconciliation, external issuer separation, production randomness, private accounting. |
+
+The separated topology has not been network tested in this experiment. Its
+feasibility and costs remain unmeasured; the source observations do not prove
+that enforceable separation is impossible. Neither topology has network custody
+evidence here.
+
+## Recorded checkpoint
+
+`local-proof-result.json` records the source revision, source/artifact hashes,
+proof hashes and measured local proof times. The recorded run produced 4,508-byte
+proofs for seed (1,595 ms) and allocation (858 ms). Withdrawal has generated
+constraint tests but no recorded local proof or finalized spend. Six offline
+tests cover the generated constraints and provider boundary, including rejection
+of HTTP redirects, authenticated HTTP/WebSocket forwarding through token-free
+SDK URLs, and sanitized subprocess failures.
+
+The execution profile was Node 24.10.0, Compact CLI 0.5.2/compiler 0.31.1,
+Compact runtime 0.16.0, Midnight JS 4.1.1, wallet SDK 1.2.0, ledger-v8 8.1.0,
+and local proof server 8.1.0, with dependencies from the repository lockfile.
+Provider access initially timed out at 10 seconds; a bounded 55-second retry
+recovered the protected credential after 39.590 seconds. The subsequent SDK
+disconnect exposed its authenticated URL, so execution stopped pending Operator
+rotation. No successful wallet synchronization, funding observation, finalized
+network transaction, or network timing was obtained.
 
 ADR 0013 remains accepted. Conditional co-location requires explicit authority,
 upgrade and opt-in migration review after viable network evidence. These results

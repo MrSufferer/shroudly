@@ -1,0 +1,40 @@
+{
+  "format": "shroudly-custody-local-proof-v1",
+  "checkedAt": "2026-10-17T06:47:59.518Z",
+  "sourceRevision": "b91423f34c1200e0108fdd273fdd9aa218b1b4cf",
+  "sourceHash": "e037a5ae6fd5e8bbadf9dbab39a25ca842f309bd0d4464db21b035eecf1cc01c",
+  "artifacts": {
+    "contract/index.js": "7d35ec37fc5c3a6ba85f13127208708024171fcfb0846cec4a1e1a32dd30704c",
+    "keys/allocateYield.prover": "d36b37488410b0fdfc2c781ad008d18e1ed4ddbc184d37edfe3d8c11058779e8",
+    "keys/allocateYield.verifier": "1c41db1828dbdc26a5ec692d708244cc09678b40078cb090565f65e1d7f1343f",
+    "keys/seed.prover": "53a22826d0346c3d1d0a13d79eba311714459f625a31e5cfa1b4c269dcd0156e",
+    "keys/seed.verifier": "6b6d98de370386220ea675eaa50627d7e21c3a72d5639471bf438a08944e0b8f",
+    "keys/withdraw.prover": "baa1d6aa9e1522b70200a9db8a5dc9a72be17dd6173b1184b84d908eaf183393",
+    "keys/withdraw.verifier": "cf9106c819588ebb0f6e012307a638768f939dd87fcd0a80c129f7e8d35ab49c",
+    "zkir/allocateYield.bzkir": "d7233cc667fe43e91a905befc52fbf2979825f9738e40202e1f3456178f13cd3",
+    "zkir/allocateYield.zkir": "71331b92620f8075de7484d341f9e287e9cb5245a1303c47a0ec06f3eb681603",
+    "zkir/seed.bzkir": "132342fe0cc9017c8232cf18af0d2228ba4a1ebb5ee973a3966d0903bc520347",
+    "zkir/seed.zkir": "ceb1368175ebae30bbd39d5a1bdac9c680762dd8c235596848f5a132318b17bb",
+    "zkir/withdraw.bzkir": "1e58b500bcaf1b734f060ec7657d9de80a100b8651b609207c937964f11907f1",
+    "zkir/withdraw.zkir": "840c407ca388e9ce1e3ae60a79d7874365dd81a04ccf0e20469a07ea9060b825"
+  },
+  "fixture": "synthetic-public-values",
+  "networkTransactions": 0,
+  "releaseQualified": false,
+  "results": [
+    {
+      "circuit": "seed",
+      "proved": true,
+      "proofBytes": 4508,
+      "proofSha256": "e69dd92f400b5dc2f39b1d4fe1d06c4517332895c3e4b257b509f63b194645b2",
+      "elapsedMs": 1595
+    },
+    {
+      "circuit": "allocateYield",
+      "proved": true,
+      "proofBytes": 4508,
+      "proofSha256": "9d910d2eeaf23245496bd30510065ae51096515807e83434b002dfa7f068fb25",
+      "elapsedMs": 858
+    }
+  ]
+}
