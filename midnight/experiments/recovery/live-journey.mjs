@@ -8,6 +8,7 @@ import {openWalletWithProgress} from './open-wallet.mjs';
 import {compiledProbe,nodeProviders,indexerFetcher,LOCK} from './journey-env.mjs';
 import {fromHex} from './codec.mjs';
 import {TX_QUERY} from './probe-runtime.mjs';
+import {assessJourney} from './journey-assess.mjs';
 
 // Live Preprod journey orchestrator (Node participant, protected wallet as the
 // wallet service). Output is a sanitized evidence record: public transaction
@@ -157,7 +158,8 @@ try{
 
   record('init-bob-same-deployment',await app({cmd:'init',name:'bob'}));
   record('bob-unregistered-while-alice-registered',await app({cmd:'reconcile',name:'bob',maxPolls:1}));
-  evidence.result='completed';
+  evidence.assessment=assessJourney(evidence);
+  evidence.result=evidence.assessment.passed?'completed':'failed-checks';
 } catch(error) {
   evidence.result='aborted';evidence.abortCategory=error?.message?.slice(0,80)?.replace(/https?:\S+|0x[0-9a-fA-F]{40,}/g,'<redacted>');
 } finally{
@@ -166,6 +168,6 @@ try{
   const out=join(here,'results','live-preprod-node.json');
   mkdirSync(join(here,'results'),{recursive:true});
   writeFileSync(out,JSON.stringify(evidence,(_,v)=>typeof v==='bigint'?v.toString():v,2)+'\n');
-  process.send?.({result:evidence.result,abortCategory:evidence.abortCategory,steps:evidence.steps.length,stateDir});
+  process.send?.({result:evidence.result,abortCategory:evidence.abortCategory,failures:evidence.assessment?.failures,steps:evidence.steps.length,stateDir});
   process.exit(evidence.result==='completed'?0:1);
 }

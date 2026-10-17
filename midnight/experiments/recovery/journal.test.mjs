@@ -52,3 +52,13 @@ test('nothing in storage contains plaintext witness material or the session key'
   assert.equal(dump.includes(Buffer.from(secret).toString('hex')),false);
   for(const raw of store.snapshot().values())assert.equal(JSON.parse(raw).v,1);
 });
+
+test('witness bytes from a Node Buffer reopen as the same raw bytes', async()=>{
+  const store=memoryStore();
+  const bytes=Buffer.from(Array.from({length:32},(_,i)=>i));
+  await (await open(store)).journal.initialize({secret:bytes,round:0n});
+  const {journal}=await open(store);
+  const {secret:reopened}=journal.current().privateState;
+  assert.equal(reopened instanceof Uint8Array,true);
+  assert.deepEqual(Array.from(reopened),Array.from({length:32},(_,i)=>i));
+});
