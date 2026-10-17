@@ -62,12 +62,21 @@ Preprod endpoints. macOS may require the Operator to allow Keychain access.
 No seed or private-state password is read by the CLI. Rotate or recover
 credentials through their respective owners using the runbook.
 
-## Remaining access work
+## Access gate outcome and downstream work
 
-- Complete the Vercel build configuration with a genuine deployment label and
-  usable browser-safe endpoints. Blockfrost's authenticated routing URLs must
-  not distribute the private token through `VITE_*` values. Contract IDs and
-  artifact hashes follow genuine deployment.
+Issue #20's human access-preparation gate is complete. Required secret and
+endpoint references are documented and the protected runner's references have
+been exercised. This does not assert a qualified or deployed application.
+
+[Issue #24](https://github.com/MrSufferer/shroudly/issues/24) owns genuine browser
+integration, including its authenticated network route, and
+[issue #26](https://github.com/MrSufferer/shroudly/issues/26) owns canonical,
+environment-locked public build configuration. At that stage, populate
+`VITE_SHROUDLY_DEPLOYMENT_ID` with the actual immutable deployment label and
+configure usable browser-safe endpoints. Blockfrost's authenticated routing
+URLs must not distribute the private token through `VITE_*` values. The
+documented token-free routing URLs alone do not establish browser access.
+Contract IDs and artifact hashes follow genuine deployment.
 
 Vercel account access is verified, not a remaining human gate. A subsequent
 authenticated API check confirmed `OWNER` membership in the linked project's
@@ -81,9 +90,10 @@ implementation work with the existing authorization, not missing account access.
 
 No placeholder deployment or public credential-bearing build was created.
 Mainnet transactional entrypoints remain disabled. The CLI reports
-`accessReady: false`, exits 1, and leaves qualification outstanding. Issue #20
-remains open for the access work above; full stack qualification belongs to
-subsequent experiments.
+`accessReady: false`, exits 1, and leaves qualification outstanding. These
+broader runtime checks remain conservative after closing the access-preparation
+gate; genuine browser lifecycle, successful proving and full stack qualification
+belong to subsequent experiments.
 
 Earlier credential reads timed out while the login-Keychain prompt was stuck.
 After the Operator accepted access and requested a retry, the private read and
