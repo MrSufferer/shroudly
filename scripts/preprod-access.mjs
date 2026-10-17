@@ -6,6 +6,8 @@ import { join } from 'node:path';
 
 const profile = JSON.parse(readFileSync(new URL('../midnight/version-profile.json', import.meta.url), 'utf8'));
 const candidateProfile = Object.fromEntries(['profile', 'compactCli', 'compactLanguage', 'compactCompiler', 'compactRuntime', 'midnightJs', 'walletSdk', 'dappConnector', 'node', 'indexer', 'proofServer'].map(name => [name, profile[name]]));
+const rootPackage = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+candidateProfile.ledgerV8 = rootPackage.dependencies['@midnight-ntwrk/ledger-v8'];
 const args = process.argv.slice(2);
 const offline = args.includes('--offline');
 const requestedTimeout = Number(args[args.indexOf('--timeout') + 1]);
@@ -71,8 +73,10 @@ for (const [name, variable, local] of [['indexer-http', 'MIDNIGHT_INDEXER_HTTP_U
 }
 if (!checks.some(check => check.name === 'proof-version')) checks.push({ name: 'proof-version', status: 'unverified', detail: 'Exact local proof server version was not observed.' });
 const report = { format: 'shroudly-preprod-access-v1', checkedAt: new Date().toISOString(), candidateProfile, browser, variables, checks, accessReady: false, qualification: 'outstanding', recovery: 'See docs/operations/preprod-access.md; Operator owns credential, funding, browser, prover and provider authorization blockers.' };
-process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-process.exitCode = 1;
+// Native WebSocket has no force-close API. A peer may ignore the close frame;
+// after every intended probe has finished, flush the complete report and exit
+// rather than letting that peer retain this one-shot CLI process indefinitely.
+process.stdout.write(`${JSON.stringify(report, null, 2)}\n`, () => process.exit(1));
 
 function endpoint(value, local, name) {
   try {

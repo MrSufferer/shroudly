@@ -22,6 +22,7 @@ test('offline inspection reports missing human evidence and never qualifies the 
   assert.equal(result.report.variables.MIDNIGHT_DEPLOYER_SECRET_NAME, false);
   assert.equal(result.report.checks.find(c => c.name === 'keychain-deployer').status, 'blocked');
   assert.equal(result.report.checks.find(c => c.name === 'browser-qualification').status, 'unverified');
+  assert.equal(result.report.candidateProfile.ledgerV8, '8.1.0');
 });
 test('requires a WebSocket protocol acknowledgement and rejects successful HTTP error payloads', async () => {
   const server = createServer((req, res) => res.end(JSON.stringify({ errors: [{ message: 'PRIVATE-REMOTE-ERROR' }] })));
@@ -76,4 +77,37 @@ test('validates protocol responses and keeps proof version and wallet funding as
     for (const name of ['indexer-http', 'rpc', 'local-prover', 'proof-version']) assert.equal(report.checks.find(c => c.name === name).status, 'pass', name);
     assert.equal(report.accessReady, false);
   } finally { server.close(); }
+});
+test('terminates after its complete report when a WebSocket peer ignores protocol and close messages', async () => {
+  const sockets = new Set();
+  const server = createServer();
+  server.on('upgrade', (req, socket) => {
+    sockets.add(socket);
+    socket.on('close', () => sockets.delete(socket));
+    socket.on('data', () => {});
+    const accept = createHash('sha1').update(`${req.headers['sec-websocket-key']}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest('base64');
+    socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\nSec-WebSocket-Protocol: graphql-transport-ws\r\n\r\n`);
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  let watchdog;
+  try {
+    const child = spawn(process.execPath, [cli.pathname, '--timeout', '100'], { env: { PATH: process.env.PATH, HOME: '/nonexistent', MIDNIGHT_INDEXER_WS_URL: `ws://127.0.0.1:${server.address().port}/ws` } });
+    let stdout = ''; let killed = false;
+    const kill = () => { killed = true; child.kill('SIGKILL'); };
+    watchdog = setTimeout(kill, 2500);
+    child.stdout.on('data', data => {
+      stdout += data;
+      if (stdout.endsWith('\n')) { clearTimeout(watchdog); watchdog = setTimeout(kill, 700); }
+    });
+    const code = await new Promise(resolve => child.on('close', resolve));
+    clearTimeout(watchdog);
+    const report = JSON.parse(stdout);
+    assert.equal(report.checks.find(c => c.name === 'indexer-ws').status, 'blocked');
+    assert.equal(killed, false, 'CLI must terminate without waiting for an uncooperative peer to close');
+    assert.equal(code, 1);
+  } finally {
+    clearTimeout(watchdog);
+    for (const socket of sockets) socket.destroy();
+    server.close();
+  }
 });

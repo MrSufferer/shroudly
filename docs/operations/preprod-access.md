@@ -34,6 +34,8 @@ The exact candidate remains [midnight/version-profile.json](../../midnight/versi
 Compact CLI **0.5.2**, language **0.23.0**, compiler **0.31.1**, runtime
 **0.16.0**, Midnight.js **4.1.1**, Wallet SDK **1.2.0**, DApp Connector
 **4.0.1**, node **1.0.2**, indexer **4.3.3-hotfix**, proof server **8.1.0**.
+The ledger library is `@midnight-ntwrk/ledger-v8` **8.1.0**, derived from its
+exact root `package.json` dependency pin in the CLI report.
 These are candidate pins; qualification remains outstanding. Do not upgrade
 pins or endpoints to turn a failed check green.
 
