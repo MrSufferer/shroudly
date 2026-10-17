@@ -1,0 +1,70 @@
+pragma language_version >= 0.22 && <= 0.23;
+import CompactStandardLibrary;
+// Isolated valueless synthetic feasibility probe. Not the Prize-Savings Pool,
+// tMIX issuer, production accounting, or an authority/ADR migration.
+export ledger authority: Bytes<32>;
+export ledger registrations: Map<Uint<2>, Bytes<32>>;
+export ledger allocatedYield: Uint<64>;
+export ledger prizeReserve: Uint<64>;
+export ledger seeded: Boolean;
+export ledger custody: ShieldedCoinInfo;
+export ledger principalLiability: Uint<64>;
+export ledger prizeLiability: Uint<64>;
+witness first(): Bytes<32>;
+witness second(): Bytes<32>;
+witness third(): Bytes<32>;
+witness spendable(): QualifiedShieldedCoinInfo;
+witness recipient(): ZswapCoinPublicKey;
+witness owner(): Bytes<32>;
+constructor() {
+  authority = disclose(persistentHash<Bytes<32>>(owner()));
+  registrations.insert(0, disclose(binding(1,0,first())));
+  registrations.insert(1, disclose(binding(1,1,second())));
+  registrations.insert(2, disclose(binding(1,2,third())));
+  allocatedYield = 0;
+  prizeReserve = 0;
+  seeded = false;
+  principalLiability = 0;
+  prizeLiability = 0;
+}
+export circuit seed(): [] {
+  assert(disclose(persistentHash<Bytes<32>>(owner()) == authority), "unauthorized asset release");
+  assert(!seeded, "already seeded");
+  const coin = mintShieldedToken(pad(32,"Shroudly/custody-probe"), 2000000, pad(32,"synthetic-reserve"), right<ZswapCoinPublicKey, ContractAddress>(kernel.self()));
+  receiveShielded(coin);
+  custody = disclose(coin);
+  principalLiability = 1000000;
+  prizeReserve = 1000000;
+  seeded = true;
+}
+
+pure circuit binding(draw: Uint<64>, contributor: Uint<2>, opening: Bytes<32>): Bytes<32> {
+  return persistentHash<[Bytes<32>,Uint<64>,Uint<2>,Bytes<32>]>([pad(32,"Shroudly/custody-binding"),draw,contributor,opening]);
+}
+// No parameter can assert an external contract result. Verification and
+// allocation run in one constrained state transition, bound to registrations.
+export circuit allocateYield(draw: Uint<64>, a: Uint<2>, b: Uint<2>): [] {
+  assert(seeded, "not seeded");
+  assert(draw == 1, "draw mismatch");
+  assert(a < 3 && b < 3 && a != b, "distinct contributors required");
+  assert(allocatedYield == 0, "already allocated");
+  assert(disclose(binding(draw,a,first()) == registrations.lookup(disclose(a))), "first contributor binding mismatch");
+  assert(disclose(binding(draw,b,second()) == registrations.lookup(disclose(b))), "second contributor binding mismatch");
+  assert(prizeReserve >= 100, "insufficient prize reserve");
+  prizeReserve = (prizeReserve - 100) as Uint<64>;
+  prizeLiability = (prizeLiability + 100) as Uint<64>;
+  allocatedYield = 100;
+}
+
+export circuit withdraw(amount: Uint<64>): [] {
+  assert(disclose(persistentHash<Bytes<32>>(owner()) == authority), "unauthorized asset release");
+  assert(seeded, "not seeded");
+  const value = disclose(amount);
+  assert(value > 0 && value <= principalLiability, "principal liability exceeded");
+  const coin = disclose(spendable());
+  assert(disclose(coin.nonce == custody.nonce && coin.color == custody.color && coin.value == custody.value), "custody coin mismatch");
+  const result = sendShielded(disclose(coin), left<ZswapCoinPublicKey,ContractAddress>(disclose(recipient())), disclose(amount) as Uint<128>);
+  assert(result.change.is_some, "segregated reserve change required");
+  custody = disclose(result.change.value);
+  principalLiability = (principalLiability - disclose(amount)) as Uint<64>;
+}
