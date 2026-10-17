@@ -14,6 +14,13 @@ const baselineCompileMs = compile('midnight/PrizePool.compact', 'midnight/manage
 const probeCompileMs = compile('midnight/experiments/offline-participation/WitnessAvailability.compact', 'midnight/managed/witness-availability', proving);
 const {qualify} = await import('./qualify.mjs');
 const {probe} = await import('./witness-probe.mjs');
+const git = args => {
+  const result = spawnSync('git', args, {cwd: root, encoding: 'utf8'});
+  if (result.status !== 0) throw Error(result.stderr || 'Cannot identify experiment revision');
+  return result.stdout.trim();
+};
+const sourcePaths = ['../../PrizePool.compact', './WitnessAvailability.compact', './qualify.mjs',
+  './witness-probe.mjs', './run.mjs', './qualification.test.mjs', './README.md'];
 const sha256 = path => createHash('sha256').update(readFileSync(new URL(path, import.meta.url))).digest('hex');
 const report = {
   recordedAt: new Date().toISOString(),
@@ -22,8 +29,11 @@ const report = {
   toolchain: {node: process.version, cli: spawnSync('compact', ['--version'], {encoding: 'utf8'}).stdout.trim(),
     compiler: spawnSync('compact', ['compile', '--version'], {encoding: 'utf8'}).stdout.trim(),
     runtime: JSON.parse(readFileSync(new URL('../../../node_modules/@midnight-ntwrk/compact-runtime/package.json', import.meta.url))).version,
-    proofServer: '8.1.0 (existing local Docker image; not remotely attested)'},
-  sourceHashes: {baseline: sha256('../../PrizePool.compact'), probe: sha256('./WitnessAvailability.compact')},
+    proofServer: proving ? {usage: 'requested', endpoint: 'http://127.0.0.1:6300',
+      configuredVersion: JSON.parse(readFileSync(new URL('../../version-profile.json', import.meta.url))).proofServer,
+      versionStatus: 'unverified configuration; actual responding service identity not measured'} : {usage: 'not-used'}},
+  revision: {head: git(['rev-parse', 'HEAD']), workingTreeStatus: git(['status', '--short'])},
+  sourceHashes: Object.fromEntries(sourcePaths.map(path => [path, sha256(path)])),
   baselineCompileMs, probeCompileMs,
   baseline: await qualify(),
   witnessProbe: await probe({prove: proving}),

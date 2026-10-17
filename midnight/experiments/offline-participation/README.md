@@ -22,15 +22,20 @@ executes their generated interfaces. It does not execute a TypeScript financial
 model. Generated artifacts stay under ignored `midnight/managed`.
 
 To generate keys and a real proof, first run the qualified local proof-server
-8.1.0 on `127.0.0.1:6300`, then:
+configured for 8.1.0 on `127.0.0.1:6300`, then:
 
 ```sh
 pnpm midnight:experiment:offline --prove --record
 pnpm test:midnight:offline
 ```
 
+Runtime-only runs record the proof server as `not-used`. Proving runs record
+the configured version as unverified; the runner does not identify or attest the
+actual service responding at the endpoint.
+
 `results.json` is the recorded run, containing only synthetic-fixture results,
-measurements and artifact hashes. No keys, participant openings, private proof
+measurements, artifact hashes, Git revision/working-tree status, and exact hashes
+of the Compact and JavaScript experiment sources. No keys, participant openings, private proof
 preimages or wallet state are written. Tests characterize the measured failures
 through generated contract calls; they are diagnostic checks, not assertions
 that the production behavior is correct. Compile before running these tests.

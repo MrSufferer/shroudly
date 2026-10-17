@@ -1,5 +1,5 @@
 {
-  "recordedAt": "2026-10-17T06:42:48.247Z",
+  "recordedAt": "2026-10-17T06:44:58.777Z",
   "releaseQualified": false,
   "classification": "rejected-protocol-probe-and-baseline-diagnostics",
   "toolchain": {
@@ -7,14 +7,28 @@
     "cli": "compact 0.5.2",
     "compiler": "0.31.1",
     "runtime": "0.16.0",
-    "proofServer": "8.1.0 (existing local Docker image; not remotely attested)"
+    "proofServer": {
+      "usage": "requested",
+      "endpoint": "http://127.0.0.1:6300",
+      "configuredVersion": "8.1.0",
+      "versionStatus": "unverified configuration; actual responding service identity not measured"
+    }
+  },
+  "revision": {
+    "head": "4baf47bb96a6e6945b9ae119db6a332f7fb8c44c",
+    "workingTreeStatus": "M midnight/experiments/offline-participation/README.md\n M midnight/experiments/offline-participation/run.mjs"
   },
   "sourceHashes": {
-    "baseline": "455bce5a14fa9a3c9a009b9ea77a6ab3c12253794cd9631700cab2773612c882",
-    "probe": "4052bba74f4f06704c5942e3bdbcc4629bd60c5b45902cca47ddab9220926bc0"
+    "../../PrizePool.compact": "455bce5a14fa9a3c9a009b9ea77a6ab3c12253794cd9631700cab2773612c882",
+    "./WitnessAvailability.compact": "4052bba74f4f06704c5942e3bdbcc4629bd60c5b45902cca47ddab9220926bc0",
+    "./qualify.mjs": "4094703f87ff6dd556a4506970cde64f0312b77cedb2a0da962bbd91413e1b0c",
+    "./witness-probe.mjs": "439f8debec41e20701c937dc33520db294d6145898aa24ebb8a8ef9089682c43",
+    "./run.mjs": "be5792a93ffa2c78af844ad78d2653f416c7f7f2cafe98638a8ad1d6967e45f7",
+    "./qualification.test.mjs": "2dea268fc3ee3cd250088e9bd713bbcabc6174022a10ec722ef448d53cc9232e",
+    "./README.md": "6ee75ea52718a7177781f95e29fd18c6332138d3619738754ce650355ba8f6aa"
   },
-  "baselineCompileMs": 817,
-  "probeCompileMs": 4747,
+  "baselineCompileMs": 809,
+  "probeCompileMs": 4609,
   "baseline": {
     "seededFixture": {
       "notReachableFromConstructor": true,
@@ -57,7 +71,7 @@
       "rawStateBytes": 1776,
       "unexportedFieldsArePublic": true
     },
-    "elapsedMs": 352
+    "elapsedMs": 351
   },
   "witnessProbe": {
     "releaseQualified": false,
@@ -66,16 +80,16 @@
     "offlineFailure": "private opening unavailable to offline caller",
     "controlUsesAllParticipantOpenings": true,
     "registrationMs": [
-      1.25,
-      1.1,
-      1.11,
-      1.16,
-      1.34,
       1.21,
-      1.28,
+      1.1,
+      1.13,
+      1.18,
+      1.44,
+      1.23,
+      1.3,
       1.3
     ],
-    "selectionMs": 5.5,
+    "selectionMs": 5.71,
     "publicTranscriptOperations": 35,
     "privateWitnessOutputs": 2,
     "proofsGenerated": 1,
@@ -117,7 +131,7 @@
       null
     ],
     "proofBytes": 4508,
-    "proofMs": 1649
+    "proofMs": 1584
   },
   "artifacts": {
     "prover": {
