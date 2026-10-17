@@ -30,7 +30,8 @@ Keychain metadata checks observed:
 | Node RPC | HTTP 200; `system_chain` confirmed Midnight Preprod |
 | Local proof service | HTTP 200 and exact `/version` response **8.1.0** |
 | GitHub repository access | Pull, push, maintain and admin permissions observed |
-| Separate Vercel project | `shroudly-preprod` created and project metadata readable |
+| Separate Vercel project | `shroudly-preprod` created; authenticated team membership confirmed as `OWNER` |
+| Vercel default domain | `shroudly-preprod.vercel.app` is verified |
 
 The prover runs in `shroudly-preprod-proof-server`, published on loopback port
 6300 only. The pinned image digest and recovery commands are in the runbook.
@@ -67,10 +68,16 @@ credentials through their respective owners using the runbook.
   usable browser-safe endpoints. Blockfrost's authenticated routing URLs must
   not distribute the private token through `VITE_*` values. Contract IDs and
   artifact hashes follow genuine deployment.
-- The current Vercel account created the project, establishing project-creation
-  permission. Deployment permission has not yet been exercised. No custom
-  domain or external DNS was provisioned; the default Vercel domain is the
-  proposed initial route, pending the first deployment.
+
+Vercel account access is verified, not a remaining human gate. A subsequent
+authenticated API check confirmed `OWNER` membership in the linked project's
+team. That role includes production deployment and environment-variable
+management permissions under [Vercel's role model](https://vercel.com/docs/rbac/access-roles).
+The project already has the verified default domain
+`shroudly-preprod.vercel.app`; no custom domain or external DNS is required for
+that route. No deployment has been attempted. Build settings, Git integration
+and environment variables are currently unset; completing these is agent
+implementation work with the existing authorization, not missing account access.
 
 No placeholder deployment or public credential-bearing build was created.
 Mainnet transactional entrypoints remain disabled. The CLI reports
