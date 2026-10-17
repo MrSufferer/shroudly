@@ -11,7 +11,11 @@ import {emit} from './isolated.mjs';
 // fails, with generous synchronization time for a first sync from genesis.
 // Diagnostic text with URLs, long hex, and key/value credentials removed, truncated.
 export const redacted = text => String(text ?? '').replace(/[a-z]+:\/\/\S+/gi, '<url>').replace(/[0-9a-f]{24,}/gi, '<hex>').replace(/(project_id|token|seed|mnemonic|key)\S*/gi, '<redacted>').slice(0, 240);
-export const errorDetail = error => { const parts = []; for (let e = error, i = 0; e && i < 4; e = e.cause, i++) parts.push(`${e?.constructor?.name}: ${redacted(e?.message)}`); return parts.join(' <- '); };
+// Effect fiber failures carry the failed error in a Cause under this symbol, not in .cause.
+const FIBER_CAUSE = Symbol.for('effect/Runtime/FiberFailure/Cause');
+const failedIn = cause => cause && (cause.error ?? cause.defect ?? failedIn(cause.left) ?? failedIn(cause.right));
+const causeOf = error => error?.cause ?? failedIn(error?.[FIBER_CAUSE]);
+export const errorDetail = error => { const parts = []; for (let e = error, i = 0; e && i < 4; e = causeOf(e), i++) parts.push(`${e?.constructor?.name}: ${redacted(e?.message)}`); return parts.join(' <- '); };
 export const errorClass = error => `${error?.constructor?.name ?? 'unknown'}${typeof error?.code === 'string' && /^[A-Z_0-9]{2,40}$/.test(error.code) ? `:${error.code}` : ''}`;
 
 // Wallet synchronization from genesis took well over an hour on Preprod, so the
