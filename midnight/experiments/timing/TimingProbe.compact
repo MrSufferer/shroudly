@@ -53,7 +53,7 @@ pure circuit binding(draw: Uint<64>, who: Uint<2>, opening: Bytes<32>): Bytes<32
 export circuit commit(draw: Uint<64>, who: Uint<2>): [] {
   const d = disclose(draw);
   const start = drawStart(d);
-  assert(who < 3, "unknown contributor");
+  assert(who < 4, "unknown contributor");
   assert(blockTimeGte(start) && blockTimeLt((start + intervalSeconds() - commitCutoffSeconds()) as Uint<64>), "commit window closed or not open");
   const key = slot(d, disclose(who));
   assert(!commitments.member(key), "already committed");

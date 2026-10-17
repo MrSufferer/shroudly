@@ -7,7 +7,7 @@ import { providerProxy } from './provider-proxy.mjs';
 import { withTimeout } from '../../../scripts/midnight-deploy-preprod.mjs';
 
 // This module never logs credentials, account identifiers, transactions or SDK errors.
-function protectedConfiguration(path) {
+export function protectedConfiguration(path) {
   const env = {...parseEnv(readFileSync(path, 'utf8')), ...process.env};
   const read = (service) => {
     const result = spawnSync('/usr/bin/security', ['find-generic-password', '-a', env.MIDNIGHT_KEYCHAIN_ACCOUNT, '-s', service, '-w'], {encoding:'utf8', timeout:55000, stdio:['ignore','pipe','ignore']});

@@ -16,6 +16,14 @@ test('commitments are accepted only from interval start to three minutes before 
   assert.throws(() => p.run(S + 5, 'commit', DRAW, 0n), /already committed/);
 });
 
+test('four contributor slots are supported and the same slot cannot cross draws', () => {
+  const p = setup();
+  p.run(S, 'commit', DRAW, 3n);
+  assert.throws(() => p.run(S, 'commit', DRAW - 1n, 3n), /commit window/);
+  assert.throws(() => p.run(S, 'commit', DRAW + 1n, 3n), /commit window/);
+  p.run(E, 'commit', DRAW + 1n, 3n);
+});
+
 test('reveals open only after weighting closes and stay open five minutes', () => {
   const p = setup();
   p.run(S, 'commit', DRAW, 0n);
