@@ -1,0 +1,144 @@
+pragma language_version >= 0.22 && <= 0.23;
+import CompactStandardLibrary;
+// Isolated synthetic timing feasibility probe for issue #23. Not the Prize-Savings
+// Pool, not production randomness, and not an accepted release constant.
+//
+// Every time decision below is a network-time predicate (blockTime*). No circuit
+// reads a timestamp, because none is assumed to exist, and none accepts a caller
+// clock. The only caller-supplied time value is a selection/pause "bucket": the
+// circuit proves the transaction's network block time lies inside that bucket,
+// so a forged value fails and an honest value is only ever accurate to BUCKET.
+
+export ledger authority: Bytes<32>;
+export ledger commitments: Map<Bytes<32>, Bytes<32>>;
+export ledger reveals: Set<Bytes<32>>;
+export ledger revealed: Map<Uint<64>, Uint<8>>;
+export ledger selectedAt: Map<Uint<64>, Uint<64>>;
+export ledger claimed: Set<Uint<64>>;
+export ledger pauseCount: Uint<8>;
+export ledger pauses: Map<Uint<8>, Pause>;
+
+struct Pause { kind: Uint<8>; scope: Uint<64>; start: Uint<64>; end: Uint<64>; }
+
+witness owner(): Bytes<32>;
+witness secret(): Bytes<32>;
+
+// Schedule constants (seconds). Preprod values from the product decision;
+// BUCKET and FINALITY_ALLOWANCE are the measured candidate margin under test.
+export pure circuit intervalSeconds(): Uint<64> { return 900; }
+export pure circuit commitCutoffSeconds(): Uint<64> { return 180; }
+export pure circuit revealSeconds(): Uint<64> { return 300; }
+export pure circuit claimSeconds(): Uint<64> { return 3600; }
+export pure circuit bucketSeconds(): Uint<64> { return 60; }
+export pure circuit finalityAllowanceSeconds(): Uint<64> { return 120; }
+export pure circuit maxPauseSeconds(): Uint<64> { return 86400; }
+
+constructor() {
+  authority = disclose(persistentHash<Bytes<32>>(owner()));
+  pauseCount = 0;
+}
+
+pure circuit drawStart(draw: Uint<64>): Uint<64> {
+  return (draw * intervalSeconds()) as Uint<64>;
+}
+pure circuit slot(draw: Uint<64>, who: Uint<2>): Bytes<32> {
+  return persistentHash<[Bytes<32>, Uint<64>, Uint<2>]>([pad(32, "Shroudly/timing-slot"), draw, who]);
+}
+pure circuit binding(draw: Uint<64>, who: Uint<2>, opening: Bytes<32>): Bytes<32> {
+  return persistentHash<[Bytes<32>, Uint<64>, Uint<2>, Bytes<32>]>([pad(32, "Shroudly/timing-binding"), draw, who, opening]);
+}
+
+// Weighting for draw N runs [N*900, N*900+900). The commit cutoff is three
+// minutes before it closes; reveals start only once weighting closes.
+export circuit commit(draw: Uint<64>, who: Uint<2>): [] {
+  const d = disclose(draw);
+  const start = drawStart(d);
+  assert(who < 3, "unknown contributor");
+  assert(blockTimeGte(start) && blockTimeLt((start + intervalSeconds() - commitCutoffSeconds()) as Uint<64>), "commit window closed or not open");
+  const key = slot(d, disclose(who));
+  assert(!commitments.member(key), "already committed");
+  commitments.insert(key, disclose(binding(d, disclose(who), secret())));
+}
+
+export circuit reveal(draw: Uint<64>, who: Uint<2>): [] {
+  const d = disclose(draw);
+  const start = drawStart(d);
+  assert(blockTimeGte((start + intervalSeconds()) as Uint<64>) && blockTimeLt((start + intervalSeconds() + revealSeconds()) as Uint<64>), "reveal window closed or not open");
+  const key = slot(d, disclose(who));
+  assert(commitments.member(key), "no commitment");
+  assert(!reveals.member(key), "already revealed");
+  assert(disclose(binding(d, disclose(who), secret()) == commitments.lookup(key)), "reveal mismatch");
+  reveals.insert(key);
+  const count: Uint<8> = revealed.member(d) ? revealed.lookup(d) : 0;
+  revealed.insert(d, (count + 1) as Uint<8>);
+}
+
+// The caller states a bucket; the network proves block time is inside it.
+circuit inBucket(bucket: Uint<64>): Uint<64> {
+  const b = disclose(bucket);
+  const begin = (b * bucketSeconds()) as Uint<64>;
+  assert(blockTimeGte(begin) && blockTimeLt((begin + bucketSeconds()) as Uint<64>), "selection time does not match network time");
+  return begin;
+}
+
+export circuit finalize(draw: Uint<64>, bucket: Uint<64>): [] {
+  const d = disclose(draw);
+  const start = drawStart(d);
+  assert(blockTimeGte((start + intervalSeconds() + revealSeconds()) as Uint<64>), "finalization not open");
+  assert(!selectedAt.member(d), "already finalized");
+  assert(revealed.member(d) && revealed.lookup(d) >= 2, "reveal threshold missed");
+  selectedAt.insert(d, inBucket(bucket));
+}
+
+export circuit pause(kind: Uint<8>, scope: Uint<64>, bucket: Uint<64>, duration: Uint<64>): [] {
+  assert(disclose(persistentHash<Bytes<32>>(owner()) == authority), "unauthorized pause");
+  assert(pauseCount < 4, "pause history full");
+  assert(disclose(duration) > 0 && disclose(duration) <= maxPauseSeconds(), "pause duration out of bounds");
+  const begin = inBucket(bucket);
+  if (pauseCount > 0) {
+    assert(pauses.lookup((pauseCount - 1) as Uint<8>).end <= begin, "pauses must not overlap");
+  }
+  pauses.insert(pauseCount, Pause { kind: disclose(kind), scope: disclose(scope), start: begin, end: (begin + bucketSeconds() + disclose(duration)) as Uint<64> });
+  pauseCount = (pauseCount + 1) as Uint<8>;
+}
+
+export circuit resume(id: Uint<8>, bucket: Uint<64>): [] {
+  assert(disclose(persistentHash<Bytes<32>>(owner()) == authority), "unauthorized pause");
+  assert(pauses.member(disclose(id)), "unknown pause");
+  const record = pauses.lookup(disclose(id));
+  assert(blockTimeLt(record.end), "pause already expired");
+  const to = (inBucket(bucket) + bucketSeconds()) as Uint<64>;
+  assert(to < record.end, "resume does not shorten pause");
+  pauses.insert(disclose(id), Pause { kind: record.kind, scope: record.scope, start: record.start, end: to });
+}
+
+circuit blocks(record: Pause, draw: Uint<64>): Boolean {
+  return record.kind == 1 && (record.scope == 0 || record.scope == draw);
+}
+
+// Folds one recorded pause into the deadline. Pauses are chronological and
+// non-overlapping, so processing them in order extends only by blocked time.
+circuit extendFor(deadline: Uint<64>, selected: Uint<64>, d: Uint<64>, index: Uint<8>): Uint<64> {
+  if (index >= pauseCount) { return deadline; }
+  const record = pauses.lookup(index);
+  if (!blocks(record, d)) { return deadline; }
+  assert(!(blockTimeGte(record.start) && blockTimeLt(record.end)), "claims paused");
+  const begin = record.start > selected ? record.start : selected;
+  if (begin < deadline && record.end > begin) {
+    return (deadline + record.end - begin) as Uint<64>;
+  }
+  return deadline;
+}
+
+export circuit claim(draw: Uint<64>): [] {
+  const d = disclose(draw);
+  assert(selectedAt.member(d), "not selected");
+  assert(!claimed.member(d), "already claimed");
+  const selected = selectedAt.lookup(d);
+  // Selection block time is below selected + BUCKET; the allowance covers the
+  // finality lag between that block and a participant observing it finalized.
+  const base = (selected + bucketSeconds() + finalityAllowanceSeconds() + claimSeconds()) as Uint<64>;
+  const deadline = extendFor(extendFor(extendFor(extendFor(base, selected, d, 0), selected, d, 1), selected, d, 2), selected, d, 3);
+  assert(blockTimeLt(deadline), "claim window closed");
+  claimed.insert(d);
+}
