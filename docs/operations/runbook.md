@@ -22,6 +22,10 @@ transaction payloads into issues, logs, screenshots, or evidence.
 
 ## 1. Empty-account provisioning (Human Gate)
 
+For the genuine-experiment access slice (#20), start with the narrower
+[Preprod access procedure](preprod-access.md). It checks existing access and
+the participant-operated local prover without provisioning unrelated services.
+
 1. Create a personal GitHub repository access path, a Vercel Preprod project,
    a Render web service for the Sponsor Service and an on-demand randomness
    signer, a Supabase project, a Resend domain, and a Better Stack workspace.
