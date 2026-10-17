@@ -46,5 +46,10 @@
     "pino": "10.3.1",
     "rxjs": "7.8.2",
     "ws": "8.21.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@midnight-ntwrk/onchain-runtime-v3": "3.0.0"
+    }
   }
 }

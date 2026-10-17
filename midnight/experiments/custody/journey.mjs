@@ -43,6 +43,7 @@ async function worker(envPath) {
     import('@midnight-ntwrk/wallet-sdk/node-client'), import('../../../scripts/midnight-deploy-preprod.mjs')
   ]);
   const { Contract, ledger: readLedger } = await import('../../managed/custody-probe/contract/index.js');
+  (await import('@midnight-ntwrk/midnight-js-network-id')).setNetworkId('preprod');
 
   let last = 0;
   const syncStarted = Date.now();
