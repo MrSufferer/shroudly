@@ -113,6 +113,23 @@ export async function openJournal({store,scope,key,writer,isFresh}) {
       ]);
       stateRaw=nextRaw;state=next;
     },
+    // The verified wallet-account binding (address plus signature over the scope challenge).
+    async binding(){
+      live();
+      const k=`${prefix}/binding`,raw=await store.get(k);
+      return raw===undefined?null:openRecord(live(),k,raw);
+    },
+    async bindAccount(binding){
+      mayWrite();
+      if(await journal.binding()!==null)throw Error('participant is already bound to a wallet account');
+      const k=`${prefix}/binding`;
+      await store.commit([{type:'put',key:k,value:await seal(live(),k,binding),expect:null}]);
+    },
+    async assertBoundTo(address){
+      const bound=await journal.binding();
+      if(bound===null)throw Error('participant is not bound to a wallet account');
+      if(bound.address!==address)throw Error('this private state belongs to a different wallet account');
+    },
     // Sealed state plus unresolved actions: the complete material a Recovery Kit carries.
     async exportRecords(){
       live();

@@ -8,6 +8,7 @@ import {fakeLocks} from './fake-locks.mjs';
 
 const scope={network:'preprod',deployment:'dep-A',participant:'p-1'};
 const secret=new Uint8Array(32).fill(7);
+const until=async condition=>{while(!condition())await new Promise(r=>setTimeout(r,1));};
 const commit=round=>`0x${round.toString(16).padStart(64,'0')}`;
 
 // Fake of the network boundary only: a ledger, a mempool, and an indexer.
@@ -46,7 +47,7 @@ const crashAt=stage=>({after:s=>{if(s===stage)throw Object.assign(Error('process
 test('a finalized action commits the next witness state and resolves the journal', async()=>{
   const store=memoryStore(),net=fakeNetwork(),journal=await boot(store);
   const pending=runAction({journal,executor:net.executor,actionId:'a1',pollMs:0});
-  await new Promise(r=>setTimeout(r,5));net.mine();
+  await until(()=>net.submissions>0);net.mine();
   const result=await pending;
   assert.equal(result.outcome,'completed');
   assert.equal(journal.current().generation,1n);
@@ -69,7 +70,7 @@ test('crash before submission: restart submits the original action exactly once'
   const restarted=await boot(store);
   assert.equal((await restarted.unresolved()).length,1);
   const pending=reconcile({journal:restarted,executor:net.executor,pollMs:0});
-  await new Promise(r=>setTimeout(r,5));net.mine();
+  await until(()=>net.submissions>0);net.mine();
   const [outcome]=await pending;
   assert.equal(outcome.outcome,'completed');
   assert.equal(net.submissions,1);
@@ -106,7 +107,7 @@ test('crash after finality: pending entry retains next state and a restart commi
   const store=memoryStore(),net=fakeNetwork();
   const first=await boot(store);
   const run=runAction({journal:first,executor:net.executor,actionId:'a1',pollMs:0,hooks:{after(stage){if(stage==='finalized'){store.failNextCommit();}}}});
-  await new Promise(r=>setTimeout(r,5));net.mine();
+  await until(()=>net.submissions>0);net.mine();
   await assert.rejects(run,/durable write failed/);
   const restarted=await boot(store);
   assert.equal(restarted.current().privateState.round,0n);
@@ -128,6 +129,15 @@ test('a definitively failed transaction is abandoned and a new action may follow
   assert.equal(result.outcome,'abandoned');
   assert.equal(restarted.current().privateState.round,0n);
   await restarted.prepare({actionId:'a2',circuit:'advance',base:{round:0n,commitment:commit(0n)},expected:{round:1n,commitment:commit(1n)},nextPrivateState:{secret,round:1n}});
+});
+
+test('the requested circuit is handed to the executor and recorded in the journal', async()=>{
+  const store=memoryStore(),net=fakeNetwork(),journal=await boot(store);
+  const seen=[];
+  const executor={...net.executor,build:async(state,circuit)=>{seen.push(circuit);return net.executor.build(state);}};
+  await assert.rejects(runAction({journal,executor,actionId:'r1',circuit:'register',pollMs:0,hooks:crashAt('prepared')}),/crashed/);
+  assert.deepEqual(seen,['register']);
+  assert.equal((await journal.unresolved())[0].circuit,'register');
 });
 
 test('an unresolved action blocks another action; a ledger that moved elsewhere blocks as a conflict', async()=>{

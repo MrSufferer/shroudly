@@ -12,7 +12,7 @@ const same=(a,b)=>a.commitment===b.commitment&&a.round===b.round;
 export async function runAction({journal,executor,actionId,pollMs=2000,maxPolls=Infinity,hooks={},circuit='advance'}) {
   const state=journal.current();
   if(state===null)throw Error('private state is not initialized');
-  const built=await executor.build(state.privateState);
+  const built=await executor.build(state.privateState,circuit);
   const entry=await journal.prepare({actionId,circuit,...built});
   await hooks.after?.('prepared');
   return settle({journal,executor,entry,pollMs,maxPolls,hooks});

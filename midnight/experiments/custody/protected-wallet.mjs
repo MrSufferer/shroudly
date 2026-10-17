@@ -7,7 +7,7 @@ import { providerProxy } from './provider-proxy.mjs';
 import { withTimeout } from '../../../scripts/midnight-deploy-preprod.mjs';
 
 // This module never logs credentials, account identifiers, transactions or SDK errors.
-function protectedConfiguration(path) {
+export function protectedConfiguration(path) {
   const env = {...parseEnv(readFileSync(path, 'utf8')), ...process.env};
   const read = (service) => {
     const result = spawnSync('/usr/bin/security', ['find-generic-password', '-a', env.MIDNIGHT_KEYCHAIN_ACCOUNT, '-s', service, '-w'], {encoding:'utf8', timeout:55000, stdio:['ignore','pipe','ignore']});
@@ -49,19 +49,19 @@ export async function openProtectedWallet(path, timeoutMs=120000) {
   const proxy=await providerProxy({...endpoints,token});
   configuration.relayURL=new URL(proxy.rpc);
   configuration.indexerClientConnection={indexerHttpUrl:proxy.http,indexerWsUrl:proxy.ws};
-  let wallet;
+  let wallet,stage='initialization';
   try {
     wallet = await withTimeout(sdk.WalletFacade.init({configuration,
     shielded:cfg=>sdk.ShieldedWallet(cfg).startWithSecretKeys(shielded),
     unshielded:cfg=>sdk.UnshieldedWallet(cfg).startWithPublicKey(sdk.PublicKey.fromKeyStore(keystore)),
     dust:cfg=>sdk.DustWallet(cfg).startWithSecretKey(dust,ledger.LedgerParameters.initialParameters().dust),
-    }),timeoutMs,'wallet initialization');
-    await withTimeout(wallet.start(shielded,dust),timeoutMs,'wallet startup');
+    }),timeoutMs,'wallet initialization');stage='startup';
+    await withTimeout(wallet.start(shielded,dust),timeoutMs,'wallet startup');stage='synchronization';
     const state = await withTimeout(wallet.waitForSyncedState(),timeoutMs,'wallet synchronization');
     return {wallet,shielded,dust,keystore,configuration,state,close:async()=>{try{await withTimeout(wallet.stop(),10000,'wallet cleanup');}finally{await proxy.close();}}};
   } catch {
     if(wallet)await withTimeout(wallet.stop(),10000,'wallet cleanup').catch(()=>{});
     await proxy.close();
-    throw Error('protected wallet did not synchronize');
+    throw Object.assign(Error('protected wallet did not synchronize'),{stage});
   }
 }

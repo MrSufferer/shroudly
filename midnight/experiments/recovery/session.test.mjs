@@ -91,6 +91,20 @@ test('concurrent preparations from different writers cannot both commit', async(
   assert.equal((await a.journal.unresolved()).length,1);
 });
 
+test('a verified wallet-account binding is stored once and a different account is refused', async()=>{
+  const store=memoryStore();
+  const a=await session(store);await a.journal.initialize({secret,round:0n});
+  assert.equal(await a.journal.binding(),null);
+  const binding={address:'addr-1',verifyingKey:'vk-1',challenge:'c',signature:'s'};
+  await a.journal.bindAccount(binding);
+  await assert.rejects(a.journal.bindAccount({...binding,address:'addr-2'}),/already bound/);
+  a.writer.release();await new Promise(r=>setTimeout(r,0));
+  const b=await session(store);
+  assert.deepEqual(await b.journal.binding(),binding);
+  await b.journal.assertBoundTo('addr-1');
+  await assert.rejects(b.journal.assertBoundTo('addr-2'),/different wallet account/);
+});
+
 test('a viewing session without the writer lock cannot change private state', async()=>{
   const store=memoryStore();
   const a=await session(store);await a.journal.initialize({secret,round:0n});
