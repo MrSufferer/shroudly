@@ -3,6 +3,11 @@ import * as ledger from '@midnight-ntwrk/ledger-v8';
 import * as Rx from 'rxjs';
 import {providerProxy} from '../custody/provider-proxy.mjs';
 import {protectedConfiguration} from '../custody/protected-wallet.mjs';
+import {loadWalletCache,saveWalletCache} from './wallet-cache.mjs';
+
+// Own cache first, then (read-only) the shared wallet's cache maintained by #23.
+export const OWN_CACHE=process.env.SHROUDLY_RECOVERY_WALLET_CACHE||'/tmp/shroudly-recovery-wallet-cache';
+const SHARED_CACHE=process.env.SHROUDLY_TIMING_WALLET_CACHE||'/tmp/shroudly-timing-wallet-cache';
 
 // Variant of the protected bootstrap for the recovery journey: it exposes the
 // loopback provider routes and numeric sync progress, and bounds each stage.
@@ -29,8 +34,11 @@ export async function openWalletWithProgress(path,{timeoutMs=1_800_000,onProgres
   let wallet;
   const close=async()=>{try{await Promise.race([wallet?.stop(),new Promise(r=>setTimeout(r,10000))]);}catch{}await proxy.close();};
   // Provider WebSockets drop during long syncs. Sub-wallet state is checkpointed
-  // in memory only (it is sensitive) and restored on reconnect so progress survives.
-  const checkpoint={};
+  // and restored on reconnect so progress survives; it is also cached in owner-only
+  // files outside the repository (no seed or secret key is serialized).
+  const checkpoint=loadWalletCache([OWN_CACHE,SHARED_CACHE]);
+  const fromCache=Boolean(checkpoint.dust);
+  const persist=()=>{try{saveWalletCache(OWN_CACHE,checkpoint);}catch{}};
   const deadline=Date.now()+timeoutMs;
   for(let attempt=1;;attempt+=1) {
     let saver,subscription,timer;
@@ -45,12 +53,15 @@ export async function openWalletWithProgress(path,{timeoutMs=1_800_000,onProgres
       const current=wallet;
       saver=setInterval(async()=>{
         for(const part of ['shielded','unshielded','dust']){try{checkpoint[part]=await current[part].serializeState();}catch{}}
+        persist();
       },60000);
       const state=await Promise.race([
         wallet.waitForSyncedState(),
         new Promise((_,reject)=>{timer=setTimeout(()=>reject(Object.assign(Error('sync timeout'),{stage:'synchronization',final:true})),Math.max(0,deadline-Date.now()));}),
       ]);
-      return {wallet,shielded,dust,keystore,configuration,state,proxy,close};
+      for(const part of ['shielded','unshielded','dust']){try{checkpoint[part]=await wallet[part].serializeState();}catch{}}
+      persist();
+      return {wallet,shielded,dust,keystore,configuration,state,proxy,close,fromCache};
     }catch(error){
       try{await Promise.race([wallet?.stop(),new Promise(r=>setTimeout(r,10000))]);}catch{}
       wallet=undefined;

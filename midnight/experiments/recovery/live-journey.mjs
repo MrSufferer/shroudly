@@ -38,10 +38,13 @@ async function acquireLock() {
   }
 }
 const releaseLock=()=>{try{rmdirSync(LOCK);}catch{}};
+// Another agent may have spent shared DUST while this process waited for the lock.
+const resync=()=>Promise.race([opened.wallet.waitForSyncedState(),sleep(600000)]).catch(()=>{});
 
 const opened=await openWalletWithProgress(envPath,{timeoutMs:7_200_000,onProgress:p=>process.send?.({syncProgress:p,atMs:Date.now()-started})})
   .catch(error=>{process.send?.({result:'aborted',abortCategory:'wallet-not-synchronized',stage:error?.stage,attempts:error?.attempts,atMs:Date.now()-started},()=>process.exit(1));return new Promise(()=>{});});
-step('wallet-synchronized');
+let dustFunded=null;try{dustFunded=opened.state.dust.balance(new Date())>0n;}catch{}
+step('wallet-synchronized',{fromCache:opened.fromCache,dustFunded});
 const keys={coinPublicKey:opened.shielded.coinPublicKey,encryptionPublicKey:opened.shielded.encryptionPublicKey};
 const routes={http:opened.configuration.indexerClientConnection.indexerHttpUrl,ws:opened.configuration.indexerClientConnection.indexerWsUrl};
 const providers=await nodeProviders({indexerHttp:routes.http,indexerWs:routes.ws,keys});
@@ -77,6 +80,7 @@ async function waitFinal(txId,timeoutMs=900000) {
 async function submitForApp(message,child) {
   const counted={circuit:message.circuit,at:Date.now()-started};
   await acquireLock();
+  await resync();
   let handedOff=false,txId;
   try{
     const unprovenTx=ledgerProtocol.Transaction.deserialize('signature','pre-proof','pre-binding',fromHex(message.bytes));
@@ -107,6 +111,7 @@ const record=(name,result)=>{step(name,{exit:result.exit,failed:result.failed,ou
 
 async function deploy() {
   await acquireLock();
+  await resync();
   try{
     const compiledContract=await compiledProbe();
     const midnightProvider={submitTx:tx=>opened.wallet.submitTransaction(tx)};
@@ -116,6 +121,7 @@ async function deploy() {
 }
 
 try{
+  if(dustFunded===false)throw Error('no-dust-for-fees');
   if(existsSync(join(stateDir,'deployment.json'))) {
     const saved=JSON.parse(readFileSync(join(stateDir,'deployment.json'),'utf8'));
     evidence.deployment=saved.address;evidence.deploymentTx=saved.txId;
