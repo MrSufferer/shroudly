@@ -65,49 +65,98 @@ loopback routes; a local HTTP/WebSocket proxy attaches provider authentication
 only to the exact validated official Preprod endpoints. Child stdout/stderr are
 discarded; the parent projects only sanitized booleans and category codes.
 
-**Do not run authenticated requests until the exposed provider credential has
-been revoked/rotated by the Operator and replaced privately in Keychain.** The
-initial direct SDK bootstrap emitted a token-bearing RPC URL in a dependency
-error. That process was stopped; no further authenticated request was made.
-No installed Blockfrost management connector/CLI is available to rotate it.
-See the runbook's existing Operator-owned provider rotation procedure.
+The Operator rotated the exposed provider credential before the 2026-10-17
+network runs. The replacement remains private in Keychain. Use only the protected
+bootstrap, which attaches authentication outside the SDK and discards dependency
+stdout/stderr. Errors in the journey are projected to fixed categories.
 
-## Topology comparison and remaining work
+Run the serialized journey with the protected reference file (never pass secrets
+on the command line):
 
-| Topology | Observed result | Missing guarantee |
+```sh
+SHROUDLY_CUSTODY_WALLET_CACHE=/tmp/shroudly-timing-wallet-cache node midnight/experiments/custody/journey.mjs /absolute/path/to/.env.preprod-access.local
+node midnight/experiments/custody/evidence-manifest.mjs
+node midnight/experiments/custody/separated/probe-call.mjs
+node --test midnight/experiments/custody/*.test.mjs midnight/experiments/custody/separated/*.test.mjs
+```
+
+Only one process may use the shared wallet. The runner serializes submissions
+with `/tmp/shroudly-wallet.lock` and waits for wallet synchronization under the
+lock. It never re-registers NIGHT for DUST. The cache contains wallet sync state
+and is kept outside Git with owner-only permissions. Remove it to sync afresh.
+Finality and indexer availability are observed through SDK submission results and
+fresh indexer queries; elapsed waits alone never establish acceptance.
+
+## Topology comparison and decision boundary
+
+`separated/authenticated-call-result.json` records a genuine compile test of the
+strong separated boundary. Its external target first compiles successfully;
+then Compact compiler 0.31.1 (ledger-8.0.2 target) rejects the pool's authenticated
+call with `cross-contract calls are not yet supported`. Missing dependencies are
+not counted as this result. `probe-call.mjs` reproduces both phases in a temporary
+directory and records both source hashes.
+
+The deployed separated counterexample deliberately accepts caller-supplied claims.
+It is not an enforceable substitute for the rejected authenticated call. Neither
+source imports nor SDK batching bind a pool claim to another contract's custody.
+A successful forged claim is evidence against this fallback, not a passing design.
+
+`network-checkpoint-2026-10-17.json` preserves the previous deploy-only run and its
+runtime-instance failures. `network-journey-result.json` is the latest live run;
+its `complete` field requires finalized co-located and separated steps, all six
+matched rejection reasons, indexed custody commitments/input/output events,
+exact wallet receipt, fresh reconciliation, and the separated counterexample.
+The rejection cases execute generated constraints against network-fetched state
+before proving/submitting: they are not finalized failed transactions.
+
+The first seeded run is preserved separately in
+`network-checkpoint-2026-10-17-first-seed.json`. It ran the earlier runner, so
+its revision does not identify the revised script hashes. Its zero DUST deltas
+used stale wallet snapshots and are not reliable cost measurements. The
+interrupted separated claim has an unknown outcome pending a fresh indexer read.
+
+| Measurement | Co-located | Separated |
 | --- | --- | --- |
-| Existing separated contracts | Source pins dependency IDs, but pool accepts `randomnessAggregate` as caller input; yield initializes an unbacked reserve counter. | Authenticated result provenance and reconciled enforceable shielded custody; source imports and batching cannot supply either. |
-| Isolated co-located probe | Generated constraints and local proofs exercise mint/receive, registered openings, segregation, one-shot allocation; generated withdrawal constraints preserve change. | Genuine finalized mint/receive/spend, fresh indexer reconciliation, external issuer separation, production randomness, private accounting. |
+| Finalized deploy | block 3021818, 24,002 ms, 11,056 bytes | asset block 3021827, 23,921 ms; pool block 3021836, 24,183 ms |
+| Finalized seed | block 3021823, 29,274 ms, 13,991 bytes; one contract output | asset block 3021832, 29,653 ms |
+| Allocation / withdrawal | not reached: ledger reader failure | forged claim interrupted; outcome unknown |
+| Authenticated boundary | same-contract constraints available | compiler 0.31.1 rejects cross-contract calls on ledger-8.0.2 |
+| Qualification | incomplete; no verified wallet receipt yet | caller claims cannot establish authenticated separation |
 
-The separated topology has not been network tested in this experiment. Its
-feasibility and costs remain unmeasured; the source observations do not prove
-that enforceable separation is impossible. Neither topology has network custody
-evidence here.
+The revised runner checkpoints each submitted hash before waiting, caps node
+finality and transaction-indexer waits at 180 seconds each, and aborts further
+submissions on timeout with `outcome-unknown`. It queries the interrupted pool
+through the indexer and synchronizes the wallet before making new submissions.
+A timeout is never recorded as a rejected transaction.
 
-## Recorded checkpoint
+The runtime regression exercises actual generated reserve seeding and allocation
+through the SDK runner up to the proof-provider boundary. The existing exact
+`@midnight-ntwrk/onchain-runtime-v3` 3.0.0 override aligns Compact runtime 0.16.0
+with Midnight.js 4.1.1; restart the process after dependency changes. The prior
+`StateValue` failure does not reproduce in a fresh process with those pins. A
+second live run finalized seed, then exposed a separate reader error: generated
+`ledger()` requires `ContractState.data` (a ChargedState), rather than the SDK
+ContractState wrapper. The regression now reproduces that failure before the
+fix and exercises the corrected generated-ledger read.
+Fifteen offline tests pass, including generated custody/rejection constraints,
+separated forgery, runtime compatibility, protected configuration/proxy and cache.
+Proxy tests require local loopback listening outside the restricted sandbox.
 
-`local-proof-result.json` records the source revision, source/artifact hashes,
-proof hashes and measured local proof times. The recorded run produced 4,508-byte
-proofs for seed (1,595 ms) and allocation (858 ms). Withdrawal has generated
-constraint tests but no recorded local proof or finalized spend. Seven offline
-tests cover the generated constraints and provider boundary, including rejection
-of HTTP redirects, authenticated HTTP/WebSocket forwarding through token-free
-SDK URLs, sanitized subprocess failures, and rejection of insecure provider
-schemes and nondefault ports before credential access.
+`network-artifact-manifest.json` records compiler-generated contract/key/ZKIR
+hashes for both network topologies, sources, execution scripts, exact package
+versions, lockfile hash, source revision and dirty flag. The revised journey also
+captures its own manifest at process startup. A dirty flag means the execution
+script hashes, rather than revision alone, identify the exact runner.
 
-The execution profile was Node 24.10.0, Compact CLI 0.5.2/compiler 0.31.1,
-Compact runtime 0.16.0, Midnight JS 4.1.1, wallet SDK 1.2.0, ledger-v8 8.1.0,
-and local proof server 8.1.0, with dependencies from the repository lockfile.
-Provider access initially timed out at 10 seconds; a bounded 55-second retry
-recovered the protected credential after 39.590 seconds. The subsequent SDK
-disconnect exposed its authenticated URL, so execution stopped pending Operator
-rotation. No successful wallet synchronization, funding observation, finalized
-network transaction, or network timing was obtained.
+Local proof evidence remains in `local-proof-result.json`: 4,508-byte proofs for
+seed (1,595 ms) and allocation (858 ms), not finalized network acceptance.
+The execution profile is Node 24.10.0, Compact CLI 0.5.2/compiler 0.31.1,
+Compact runtime 0.16.0, Midnight.js 4.1.1, wallet SDK 1.2.0, ledger-v8 8.1.0,
+and participant-local proof server 8.1.0.
 
-ADR 0013 remains accepted. Conditional co-location requires explicit authority,
-upgrade and opt-in migration review after viable network evidence. These results
-cannot authorize supersession or broad financial implementation. Resume #21 with
-rotated access; implement and execute the complete network custody journey and
-its separation comparison, then record finalized transactions and fresh ledger
-queries. If either topology cannot preserve the accepted guarantees, return a
-specific evidenced design trade-off for decision. #21 must remain open meanwhile.
+ADR 0013 remains accepted. These synthetic, publicly diagnosable minted assets
+are not real saver deposits or participant-private accounting. Conditional
+co-location still requires explicit authority, upgrade and opt-in migration
+review. The design decision is whether to authorize that review, defer until an
+authenticated separated boundary is supported, or provide a different enforceable
+separation design. This experiment cannot silently weaken that requirement.

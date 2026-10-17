@@ -1,0 +1,78 @@
+{
+  "format": "shroudly-custody-network-journey-v1",
+  "startedAt": "2026-10-17T14:50:59.098Z",
+  "steps": [
+    {
+      "name": "wallet-sync-from-cache",
+      "elapsedMs": 76590,
+      "status": "Synchronized"
+    },
+    {
+      "name": "deploy",
+      "txHash": "75e05f6de5c7d2621aef085e8cd21d2a07ac2fed4062c325a3e36c75689d36c3",
+      "blockHash": "0ad161660c59562fd323663a48f6dcd87ad143170e1ba229709b628f6b8b212f",
+      "blockHeight": 3021818,
+      "elapsedMs": 24002,
+      "status": "SucceedEntirely",
+      "txBytes": 11056,
+      "dustSpentApprox": "0"
+    },
+    {
+      "name": "seed",
+      "txHash": "b33a78178577c1320a52f4d7fe62238993044f94d14cc12d89b3f21084518e55",
+      "blockHash": "6befa04d68fee4820ecd21685e8f54fb7e3b5994ec1a23074ca27afb621b3cac",
+      "blockHeight": 3021823,
+      "elapsedMs": 29274,
+      "status": "SucceedEntirely",
+      "txBytes": 13991,
+      "contractOutputs": 1,
+      "dustSpentApprox": "0"
+    },
+    {
+      "name": "separated-asset-deploy",
+      "txHash": "b9ec369892e507f8f1ab4d677704ff2996dcc7ef78225cf90fdc8af6662174c4",
+      "blockHash": "a4cb74a878289d121df22d8058a5e8ca795b71eb12af015cb2f06462d294d360",
+      "blockHeight": 3021827,
+      "elapsedMs": 23921,
+      "status": "SucceedEntirely",
+      "dustSpentApprox": "0"
+    },
+    {
+      "name": "separated-asset-seed",
+      "txHash": "a766dd29c6b724116431db28f420914604fb8c56a7b458e96e4a765c8fb4f8f2",
+      "blockHash": "f0400b23610fc82af87960e09c7eaa2a5a9ccea6bf960d7e5a36e8ae24005688",
+      "blockHeight": 3021832,
+      "elapsedMs": 29653,
+      "status": "SucceedEntirely",
+      "dustSpentApprox": "0"
+    },
+    {
+      "name": "separated-pool-deploy",
+      "txHash": "5faf3077ea13d5dda5169690ebf293bbabfbb9bcb6db6adb65d665c9fdcb345c",
+      "blockHash": "90e8275a292a78bfbfb6171cd1460072d015de1b2e79b3d1e6a029e0fba7f359",
+      "blockHeight": 3021836,
+      "elapsedMs": 24183,
+      "status": "SucceedEntirely",
+      "dustSpentApprox": "0"
+    }
+  ],
+  "rejections": [],
+  "failures": [
+    {
+      "step": "seed-state",
+      "errorName": "Error",
+      "message": "expected instance of ChargedState"
+    }
+  ],
+  "releaseQualified": false,
+  "funding": {
+    "nightBalance": "5000000000",
+    "dustBalance": "25000000000000000000"
+  },
+  "contractAddress": "fe48669a82ebfcfd46a727b12c50f5c9ecdf89e28d132c4fd1a4a6b35578badb",
+  "separatedAssetAddress": "6c649e4b8b5f2f4f8b4449e5cef8f8f570ead2cac23e9f16b542d019f691262c",
+  "separatedPoolAddress": "b7fcb49cd5c0c5bfa8209277eb91e7d7aa8f588186cb11dfe0074fbe8d5541f7",
+  "finishedAt": "2026-10-17T15:00:40.886Z",
+  "elapsedMs": 581788,
+  "complete": false
+}

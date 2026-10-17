@@ -4,6 +4,8 @@ import { mkdirSync, rmdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:f
 import { randomBytes, createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { readContractLedger } from './runtime-state.mjs';
+import { evidenceManifest } from './evidence-manifest.mjs';
 import { reconcileCustody, sanitizeStep } from './reconciliation.mjs';
 
 // Genuine Preprod custody journey: one process syncs the protected wallet once, then
@@ -15,7 +17,21 @@ const CACHE = process.env.SHROUDLY_CUSTODY_WALLET_CACHE || '/tmp/shroudly-custod
 const managed = new URL('../../managed/custody-probe/', import.meta.url);
 const resultPath = fileURLToPath(new URL('./network-journey-result.json', import.meta.url));
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const redact = (text) => String(text ?? '').replace(/[A-Za-z0-9+/=_-]{24,}/g, '<redacted>').replace(/[^A-Za-z0-9 _.:<>-]/g, ' ').slice(0, 160);
+// Fixed categories only: dependency messages may include provider credentials.
+const failureCategory = error => {
+  const message = String(error?.message ?? '');
+  if (error?.code === 'OUTCOME_UNKNOWN') return 'outcome-unknown';
+  if (message.includes('expected instance of StateValue')) return 'runtime-statevalue-mismatch';
+  if (message.includes('expected exactly one contract output')) return 'unexpected-contract-output-count';
+  if (message.includes('qualified coin unavailable')) return 'qualified-coin-unavailable';
+  if (message.includes('indexer query error')) return 'indexer-query-failed';
+  return 'operation-failed';
+};
+const bounded = async (operation, milliseconds) => {
+  let timer;
+  try { return await Promise.race([operation, new Promise((_, reject) => { timer = setTimeout(() => reject(Object.assign(Error('bounded operation expired'), { code: 'OUTCOME_UNKNOWN' })), milliseconds); })]); }
+  finally { clearTimeout(timer); }
+};
 const bytes = (n) => new Uint8Array(32).fill(n);
 
 async function worker(envPath) {
@@ -26,13 +42,13 @@ async function worker(envPath) {
       try { mkdirSync(LOCK); break; } catch (error) { if (error.code !== 'EEXIST') throw error; await sleep(5000); }
     }
     lockHeld = true; send({ lock: 'held' });
-    try { await opened.wallet.waitForSyncedState(); return await fn(); }
+    try { opened.state = await opened.wallet.waitForSyncedState(); return await fn(); }
     finally { try { rmdirSync(LOCK); } catch { /* already released */ } lockHeld = false; send({ lock: 'released' }); }
   };
   const step = async (name, fn) => {
     const started = Date.now();
     try { const value = await fn(); return { ok: true, value, elapsedMs: Date.now() - started }; }
-    catch (error) { send({ failure: { step: name, errorName: redact(error?.name), message: redact(error?.message) } }); return { ok: false }; }
+    catch (error) { send({ failure: { step: name, category: failureCategory(error) } }); if (error?.code === 'OUTCOME_UNKNOWN') throw error; return { ok: false }; }
   };
 
   const [{ openProtectedWallet }, sdk, ledger, contracts, indexer, zkModule, proofModule, privateModule, compactJs, nodeModule, deployScript] = await Promise.all([
@@ -69,8 +85,10 @@ async function worker(envPath) {
     const node = await nodeModule.PolkadotNodeClient.init({ nodeURL: new URL(rpc) });
     const midnightProvider = { submitTx: async (finalized) => {
       const id = deployScript.finalizedTransactionId(finalized);
-      const submitted = await node.sendMidnightTransactionAndWait(finalized.serialize(), 'Finalized');
+      send({ submitted: { txHash: id, at: new Date().toISOString() } });
+      const submitted = await bounded(node.sendMidnightTransactionAndWait(finalized.serialize(), 'Finalized'), 180000);
       if (submitted?._tag && submitted._tag !== 'Finalized') throw Error('not finalized');
+      send({ nodeFinalized: { txHash: id } });
       return id;
     } };
     const walletProvider = {
@@ -82,6 +100,12 @@ async function worker(envPath) {
       },
     };
     const publicDataProvider = indexer.indexerPublicDataProvider(http, ws);
+    const watchForTxData = publicDataProvider.watchForTxData.bind(publicDataProvider);
+    publicDataProvider.watchForTxData = (...args) => bounded(watchForTxData(...args), 180000);
+    // Reconcile the interrupted previous run before new submissions.
+    const previousPoolModule = await import('../../managed/separated-pool/contract/index.js');
+    const previousPool = readContractLedger(previousPoolModule.ledger, (await contracts.getPublicStates(publicDataProvider, 'b7fcb49cd5c0c5bfa8209277eb91e7d7aa8f588186cb11dfe0074fbe8d5541f7')).contractState);
+    send({ previousRunReconciliation: { poolReportedCustody: previousPool.reportedCustody.toString(), poolPrizeLiability: previousPool.prizeLiability.toString() } });
     privateDirectory = mkdtempSync(join(tmpdir(), 'custody-private-'));
     const password = `Aa1!${randomBytes(18).toString('hex')}`;
     const privateStateProvider = privateModule.levelPrivateStateProvider({
@@ -107,6 +131,12 @@ async function worker(envPath) {
       spendable: ({ privateState }) => { if (!qualifiedCoin) throw Error('qualified coin unavailable'); return [privateState, qualifiedCoin]; },
       recipient: ({ privateState }) => [privateState, { bytes: recipientBytes }],
     };
+    const RT = await import('@midnight-ntwrk/compact-runtime');
+    const contractCommitment = (coin, address) => {
+      const zero = new Uint8Array(32);
+      const recipient = { is_left: false, left: { bytes: zero }, right: { bytes: Uint8Array.from(Buffer.from(address, 'hex')) } };
+      return Buffer.from(RT.runtimeCoinCommitment({ value: RT.ShieldedCoinInfoDescriptor.toValue(coin), alignment: RT.ShieldedCoinInfoDescriptor.alignment() }, { value: RT.ShieldedCoinRecipientDescriptor.toValue(recipient), alignment: RT.ShieldedCoinRecipientDescriptor.alignment() }).value[0]).toString('hex');
+    };
     const probe = bundle('CustodyProbe', Contract, managed, witnesses);
 
     // Indexer helpers: independent GraphQL reads, no SDK state involved.
@@ -129,10 +159,11 @@ async function worker(envPath) {
     };
     const publicOf = (finalized) => ({ txHash: finalized.public.txHash, blockHeight: Number(finalized.public.blockHeight), blockHash: finalized.public.blockHash, status: String(finalized.public.status) });
     const submitCall = (address, circuitId, args = [], target = probe) => withLock(opened, async () => {
-      const dustBefore = dustNow();
+      const dustBefore = (await opened.wallet.waitForSyncedState()).dust.balance(new Date());
       const started = Date.now();
       const result = await contracts.submitCallTx(target.providers, { compiledContract: target.compiledContract, contractAddress: address, circuitId, args, privateStateId: target.tag });
       const state = await opened.wallet.waitForSyncedState();
+      opened.state = state;
       return { ...publicOf(result), elapsedMs: Date.now() - started, dustSpentApprox: (dustBefore - state.dust.balance(new Date())).toString() };
     });
     const expectRejection = async (name, address, circuitId, args, expected) => {
@@ -144,7 +175,7 @@ async function worker(envPath) {
     const freshReconciliation = async (address) => {
       const fresh = indexer.indexerPublicDataProvider(http, ws);
       const states = await contracts.getPublicStates(fresh, address);
-      const state = readLedger(states.contractState);
+      const state = readContractLedger(readLedger, states.contractState);
       const reconciliation = reconcileCustody(state);
       const domain = Buffer.alloc(32); domain.write('Shroudly/custody-probe');
       const derivedColor = ledger.rawTokenType(Uint8Array.from(domain), address);
@@ -153,10 +184,11 @@ async function worker(envPath) {
     };
 
     const deployContract = (name, target, args = []) => withLock(opened, () => step(name, async () => {
-      const dustBefore = dustNow();
+      const dustBefore = (await opened.wallet.waitForSyncedState()).dust.balance(new Date());
       const started = Date.now();
       const deployed = await contracts.deployContract(target.providers, { compiledContract: target.compiledContract, args, privateStateId: target.tag, initialPrivateState: {} });
       const state = await opened.wallet.waitForSyncedState();
+      opened.state = state;
       return { address: String(deployed.deployTxData.public.contractAddress ?? deployed.address), ...publicOf(deployed.deployTxData), elapsedMs: Date.now() - started, dustSpentApprox: (dustBefore - state.dust.balance(new Date())).toString() };
     }));
 
@@ -174,12 +206,13 @@ async function worker(envPath) {
     if (!seed.ok) return;
     const seedEvidence = await step('seed-indexer', () => transactionEvidence(seed.value.txHash, address));
     send({ step: { name: 'seed', ...seed.value, txBytes: seedEvidence.value?.txBytes, contractOutputs: seedEvidence.value?.outputs.length } });
-    if (seedEvidence.value?.outputs.length !== 1) { send({ failure: { step: 'seed-index', message: 'expected exactly one contract output' } }); return; }
+    if (seedEvidence.value?.outputs.length !== 1) { send({ failure: { step: 'seed-index', category: 'unexpected-contract-output-count' } }); return; }
     const afterSeed = await step('seed-state', async () => {
       const states = await contracts.getPublicStates(publicDataProvider, address);
-      return readLedger(states.contractState);
+      return readContractLedger(readLedger, states.contractState);
     });
     if (!afterSeed.ok) return;
+    send({ custodyCommitment: { stage: 'seed', matched: seedEvidence.value.outputs[0].commitment === contractCommitment(afterSeed.value.custody, address) } });
     qualifiedCoin = { ...afterSeed.value.custody, mt_index: seedEvidence.value.outputs[0].mtIndex };
 
     // 3. Live-state rejections (rejected locally before any submission)
@@ -206,7 +239,11 @@ async function worker(envPath) {
 
     // 6. Fresh-indexer reconciliation and wallet-side release observation
     const fresh = await step('fresh-reconciliation', () => freshReconciliation(address));
-    if (fresh.ok) send({ reconciliation: fresh.value });
+    if (fresh.ok) {
+      const finalContract = readContractLedger(readLedger, (await contracts.getPublicStates(indexer.indexerPublicDataProvider(http, ws), address)).contractState);
+      send({ custodyCommitment: { stage: 'withdraw', matched: withdrawEvidence.value?.outputs.some(output => output.commitment === contractCommitment(finalContract.custody, address)) === true } });
+      send({ reconciliation: fresh.value });
+    }
     const finalState = await opened.wallet.waitForSyncedState();
     send({ walletRelease: { shieldedColorBalances: Object.fromEntries(Object.entries(finalState.shielded.balances ?? {}).map(([k, v]) => [k, BigInt(v).toString()])) } });
     };
@@ -239,8 +276,8 @@ async function worker(envPath) {
       if (forgedResult.ok) send({ step: { name: 'separated-pool-forged-randomness', ...forgedResult.value } });
       const view = await step('separated-fresh-reconciliation', async () => {
         const fresh = indexer.indexerPublicDataProvider(http, ws);
-        const assetState = assetModule.ledger((await contracts.getPublicStates(fresh, assetAddress)).contractState);
-        const poolState = poolModule.ledger((await contracts.getPublicStates(fresh, poolAddress)).contractState);
+        const assetState = readContractLedger(assetModule.ledger, (await contracts.getPublicStates(fresh, assetAddress)).contractState);
+        const poolState = readContractLedger(poolModule.ledger, (await contracts.getPublicStates(fresh, poolAddress)).contractState);
         return reconcileCustody({ custody: { value: assetState.custody.value }, principalLiability: poolState.principalLiability, prizeReserve: poolState.prizeReserve, prizeLiability: poolState.prizeLiability });
       });
       if (view.ok) send({ separatedReconciliation: view.value });
@@ -251,19 +288,21 @@ async function worker(envPath) {
   } finally {
     if (lockHeld) { try { rmdirSync(LOCK); } catch { /* ignore */ } }
     if (privateDirectory) rmSync(privateDirectory, { recursive: true, force: true });
+    const { saveWalletCache } = await import('./wallet-cache.mjs');
+    await saveWalletCache(CACHE, opened.wallet).catch(() => {});
     await opened.close().catch(() => {});
   }
 }
 
 if (process.argv[2] === '--worker') {
-  try { await worker(process.argv[3]); send_done(); } catch (error) { process.send?.({ failure: { step: 'journey', errorName: redact(error?.name), message: redact(error?.message) } }); }
+  try { await worker(process.argv[3]); send_done(); } catch (error) { process.send?.({ failure: { step: 'journey', category: failureCategory(error) } }); }
   process.exit();
 }
 function send_done() { process.send?.({ done: true }); }
 
 if (!process.argv[2]) throw Error('Pass the protected local environment file path');
 const started = Date.now();
-const evidence = { format: 'shroudly-custody-network-journey-v1', startedAt: new Date().toISOString(), steps: [], rejections: [], failures: [], releaseQualified: false };
+const evidence = { manifest: evidenceManifest(), format: 'shroudly-custody-network-journey-v1', startedAt: new Date().toISOString(), steps: [], submissions: [], rejections: [], failures: [], releaseQualified: false };
 const child = fork(fileURLToPath(import.meta.url), ['--worker', process.argv[2]], { stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
 const timer = setTimeout(() => child.kill('SIGKILL'), 3 * 3600 * 1000);
 let lockState = 'released';
@@ -280,8 +319,11 @@ child.on('message', (m) => {
       const dust = str(m.step.dustSpentApprox, /^-?\d{1,30}$/); if (dust) base.dustSpentApprox = dust;
       evidence.steps.push(base);
       console.error(JSON.stringify({ step: base.name, status: base.status }));
-    } catch { evidence.failures.push({ step: 'evidence-projection', message: 'invalid step evidence' }); }
+    } catch { evidence.failures.push({ step: 'evidence-projection', category: 'invalid-step-evidence' }); }
   }
+  if (m?.submitted && str(m.submitted.txHash, /^[0-9a-f]{64}$/)) { evidence.submissions.push({ txHash: m.submitted.txHash, nodeFinalized: false }); console.error(JSON.stringify({ submitted: m.submitted.txHash })); }
+  if (m?.nodeFinalized) { const submission = evidence.submissions.find(s => s.txHash === m.nodeFinalized.txHash); if (submission) submission.nodeFinalized = true; }
+  if (m?.previousRunReconciliation) evidence.previousRunReconciliation = { poolReportedCustody: str(m.previousRunReconciliation.poolReportedCustody, /^\d{1,30}$/), poolPrizeLiability: str(m.previousRunReconciliation.poolPrizeLiability, /^\d{1,30}$/) };
   if (m?.funding) evidence.funding = { nightBalance: str(m.funding.nightBalance, /^\d{1,30}$/), dustBalance: str(m.funding.dustBalance, /^\d{1,30}$/) };
   if (m?.separatedAsset) evidence.separatedAssetAddress = str(m.separatedAsset, /^[0-9a-f]{64}$/);
   if (m?.separatedPool) evidence.separatedPoolAddress = str(m.separatedPool, /^[0-9a-f]{64}$/);
@@ -292,8 +334,10 @@ child.on('message', (m) => {
     const r = m.reconciliation.reconciliation;
     evidence.freshIndexerReconciliation = { ...Object.fromEntries(['custodyValue', 'principalLiability', 'prizeReserve', 'prizeLiability', 'liabilitiesTotal'].map((k) => [k, str(r?.[k], /^\d{1,30}$/)])), reconciled: r?.reconciled === true, custodyColor: str(m.reconciliation.custodyColor, /^[0-9a-f]{64}$/), allocatedYield: str(m.reconciliation.allocatedYield, /^\d{1,30}$/), seeded: m.reconciliation.seeded === true, colorDerivedFromContractAddress: m.reconciliation.colorDerivedFromContractAddress === true };
   }
+  if (m?.custodyCommitment && ['seed','withdraw'].includes(m.custodyCommitment.stage)) { evidence.custodyCommitments ??= {}; evidence.custodyCommitments[m.custodyCommitment.stage] = m.custodyCommitment.matched === true; }
   if (m?.walletRelease) evidence.walletRelease = { shieldedColorBalances: Object.fromEntries(Object.entries(m.walletRelease.shieldedColorBalances ?? {}).filter(([k, v]) => /^[0-9a-f]{64}$/.test(k) && /^\d{1,30}$/.test(v))) };
-  if (m?.failure) { evidence.failures.push({ step: str(m.failure.step, /^[a-z-]{1,40}$/), errorName: str(m.failure.errorName, /^[A-Za-z0-9 _.:<>-]{0,160}$/), message: str(m.failure.message, /^[A-Za-z0-9 _.:<>-]{0,160}$/) }); }
+  if (m?.failure) { console.error(JSON.stringify({failureStep: str(m.failure.step, /^[a-z-]{1,40}$/), category: ['outcome-unknown','runtime-statevalue-mismatch','unexpected-contract-output-count','qualified-coin-unavailable','indexer-query-failed','operation-failed'].includes(m.failure.category) ? m.failure.category : 'operation-failed'})); evidence.failures.push({ step: str(m.failure.step, /^[a-z-]{1,40}$/), category: ['outcome-unknown','runtime-statevalue-mismatch','unexpected-contract-output-count','qualified-coin-unavailable','indexer-query-failed','operation-failed'].includes(m.failure.category) ? m.failure.category : 'operation-failed' }); }
+  writeFileSync(resultPath, JSON.stringify(evidence, null, 2) + '\n');
 });
 child.on('exit', () => {
   clearTimeout(timer);
@@ -301,7 +345,16 @@ child.on('exit', () => {
   if (lockState === 'held') { try { rmdirSync(LOCK); } catch { /* already gone */ } }
   evidence.finishedAt = new Date().toISOString();
   evidence.elapsedMs = Date.now() - started;
-  evidence.complete = evidence.failures.length === 0 && evidence.steps.some((s) => s.name === 'withdraw') && evidence.freshIndexerReconciliation?.reconciled === true;
+  evidence.complete = evidence.failures.length === 0
+    && ['deploy','seed','allocateYield','withdraw','separated-asset-deploy','separated-asset-seed','separated-pool-deploy','separated-pool-forged-claim','separated-pool-forged-randomness'].every(name => evidence.steps.some(s => s.name === name && s.status === 'SucceedEntirely'))
+    && ['forged-draw-mismatch','contributor-binding-mismatch','duplicate-contributor','unauthorized-asset-release','principal-liability-exceeded','repeated-yield-allocation'].every(name => evidence.rejections.some(r => r.name === name && r.rejected && r.reasonMatched))
+    && evidence.freshIndexerReconciliation?.reconciled === true
+    && evidence.freshIndexerReconciliation?.custodyValue === '1600000'
+    && evidence.walletRelease?.shieldedColorBalances?.[evidence.freshIndexerReconciliation?.custodyColor] === '400000'
+    && evidence.custodyCommitments?.seed === true && evidence.custodyCommitments?.withdraw === true
+    && evidence.steps.some(s => s.name === 'seed' && s.contractOutputs === 1)
+    && evidence.steps.some(s => s.name === 'withdraw' && s.contractInputs === 1 && s.contractOutputs === 1)
+    && evidence.separatedFreshIndexerView?.reconciled === false;
   writeFileSync(resultPath, JSON.stringify(evidence, null, 2) + '\n');
   console.log(JSON.stringify(evidence, null, 2));
   process.exitCode = evidence.complete ? 0 : 1;

@@ -1,0 +1,6 @@
+pragma language_version >= 0.22 && <= 0.23;
+import CompactStandardLibrary;
+// Minimal external target used only to test authenticated call compilation.
+export ledger custody: Uint<64>;
+constructor() { custody = 2000000; }
+export circuit custodyValue(): Uint<64> { return custody; }

@@ -1,28 +1,57 @@
 {
   "format": "shroudly-custody-network-journey-v1",
-  "startedAt": "2026-10-17T14:08:38.309Z",
+  "startedAt": "2026-10-17T14:50:59.098Z",
   "steps": [
     {
       "name": "wallet-sync-from-cache",
-      "elapsedMs": 149336,
+      "elapsedMs": 76590,
       "status": "Synchronized"
     },
     {
       "name": "deploy",
-      "txHash": "ec4880b32dd1be643e904f2ae245d82a4ab997fb96a10a219fd8000d27bbbb74",
-      "blockHash": "5dc6fe6644332787e2381de4fe309f83a25027023a29ffe798cd5155f62ee495",
-      "blockHeight": 3021490,
-      "elapsedMs": 23788,
+      "txHash": "75e05f6de5c7d2621aef085e8cd21d2a07ac2fed4062c325a3e36c75689d36c3",
+      "blockHash": "0ad161660c59562fd323663a48f6dcd87ad143170e1ba229709b628f6b8b212f",
+      "blockHeight": 3021818,
+      "elapsedMs": 24002,
       "status": "SucceedEntirely",
       "txBytes": 11056,
       "dustSpentApprox": "0"
     },
     {
+      "name": "seed",
+      "txHash": "b33a78178577c1320a52f4d7fe62238993044f94d14cc12d89b3f21084518e55",
+      "blockHash": "6befa04d68fee4820ecd21685e8f54fb7e3b5994ec1a23074ca27afb621b3cac",
+      "blockHeight": 3021823,
+      "elapsedMs": 29274,
+      "status": "SucceedEntirely",
+      "txBytes": 13991,
+      "contractOutputs": 1,
+      "dustSpentApprox": "0"
+    },
+    {
       "name": "separated-asset-deploy",
-      "txHash": "3e2a972f3f2d8e97559588a427771b6e60a400f48fc366599dbc88c3cc18b492",
-      "blockHash": "4870d8ccb165e8c0dd3436297d44df4d228a92959bab8c3de05d9225e39a0c2d",
-      "blockHeight": 3021494,
-      "elapsedMs": 22758,
+      "txHash": "b9ec369892e507f8f1ab4d677704ff2996dcc7ef78225cf90fdc8af6662174c4",
+      "blockHash": "a4cb74a878289d121df22d8058a5e8ca795b71eb12af015cb2f06462d294d360",
+      "blockHeight": 3021827,
+      "elapsedMs": 23921,
+      "status": "SucceedEntirely",
+      "dustSpentApprox": "0"
+    },
+    {
+      "name": "separated-asset-seed",
+      "txHash": "a766dd29c6b724116431db28f420914604fb8c56a7b458e96e4a765c8fb4f8f2",
+      "blockHash": "f0400b23610fc82af87960e09c7eaa2a5a9ccea6bf960d7e5a36e8ae24005688",
+      "blockHeight": 3021832,
+      "elapsedMs": 29653,
+      "status": "SucceedEntirely",
+      "dustSpentApprox": "0"
+    },
+    {
+      "name": "separated-pool-deploy",
+      "txHash": "5faf3077ea13d5dda5169690ebf293bbabfbb9bcb6db6adb65d665c9fdcb345c",
+      "blockHash": "90e8275a292a78bfbfb6171cd1460072d015de1b2e79b3d1e6a029e0fba7f359",
+      "blockHeight": 3021836,
+      "elapsedMs": 24183,
       "status": "SucceedEntirely",
       "dustSpentApprox": "0"
     }
@@ -30,14 +59,9 @@
   "rejections": [],
   "failures": [
     {
-      "step": "seed",
+      "step": "seed-state",
       "errorName": "Error",
-      "message": "Unexpected error executing scoped transaction  <unnamed> : Error: expected instance of StateValue"
-    },
-    {
-      "step": "separated-asset-seed",
-      "errorName": "Error",
-      "message": "Unexpected error executing scoped transaction  <unnamed> : Error: expected instance of StateValue"
+      "message": "expected instance of ChargedState"
     }
   ],
   "releaseQualified": false,
@@ -45,9 +69,10 @@
     "nightBalance": "5000000000",
     "dustBalance": "25000000000000000000"
   },
-  "contractAddress": "37856794051e2ce673f044fbfc24dc59c56a994531ec82db372309262f9993d9",
-  "separatedAssetAddress": "d20ded0ad476f414a642347a346e854dfa58c37e4efbe835027e484658c5c277",
-  "finishedAt": "2026-10-17T14:20:19.610Z",
-  "elapsedMs": 701301,
+  "contractAddress": "fe48669a82ebfcfd46a727b12c50f5c9ecdf89e28d132c4fd1a4a6b35578badb",
+  "separatedAssetAddress": "6c649e4b8b5f2f4f8b4449e5cef8f8f570ead2cac23e9f16b542d019f691262c",
+  "separatedPoolAddress": "b7fcb49cd5c0c5bfa8209277eb91e7d7aa8f588186cb11dfe0074fbe8d5541f7",
+  "finishedAt": "2026-10-17T15:00:40.886Z",
+  "elapsedMs": 581788,
   "complete": false
 }

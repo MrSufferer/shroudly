@@ -1,0 +1,53 @@
+{
+  "format": "shroudly-custody-network-journey-v1",
+  "startedAt": "2026-10-17T14:08:38.309Z",
+  "steps": [
+    {
+      "name": "wallet-sync-from-cache",
+      "elapsedMs": 149336,
+      "status": "Synchronized"
+    },
+    {
+      "name": "deploy",
+      "txHash": "ec4880b32dd1be643e904f2ae245d82a4ab997fb96a10a219fd8000d27bbbb74",
+      "blockHash": "5dc6fe6644332787e2381de4fe309f83a25027023a29ffe798cd5155f62ee495",
+      "blockHeight": 3021490,
+      "elapsedMs": 23788,
+      "status": "SucceedEntirely",
+      "txBytes": 11056,
+      "dustSpentApprox": "0"
+    },
+    {
+      "name": "separated-asset-deploy",
+      "txHash": "3e2a972f3f2d8e97559588a427771b6e60a400f48fc366599dbc88c3cc18b492",
+      "blockHash": "4870d8ccb165e8c0dd3436297d44df4d228a92959bab8c3de05d9225e39a0c2d",
+      "blockHeight": 3021494,
+      "elapsedMs": 22758,
+      "status": "SucceedEntirely",
+      "dustSpentApprox": "0"
+    }
+  ],
+  "rejections": [],
+  "failures": [
+    {
+      "step": "seed",
+      "errorName": "Error",
+      "message": "Unexpected error executing scoped transaction  <unnamed> : Error: expected instance of StateValue"
+    },
+    {
+      "step": "separated-asset-seed",
+      "errorName": "Error",
+      "message": "Unexpected error executing scoped transaction  <unnamed> : Error: expected instance of StateValue"
+    }
+  ],
+  "releaseQualified": false,
+  "funding": {
+    "nightBalance": "5000000000",
+    "dustBalance": "25000000000000000000"
+  },
+  "contractAddress": "37856794051e2ce673f044fbfc24dc59c56a994531ec82db372309262f9993d9",
+  "separatedAssetAddress": "d20ded0ad476f414a642347a346e854dfa58c37e4efbe835027e484658c5c277",
+  "finishedAt": "2026-10-17T14:20:19.610Z",
+  "elapsedMs": 701301,
+  "complete": false
+}

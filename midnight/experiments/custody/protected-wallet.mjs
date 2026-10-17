@@ -62,8 +62,8 @@ export async function openProtectedWallet(path, timeoutMs=900000, onProgress, ca
   configuration.indexerClientConnection={indexerHttpUrl:proxy.http,indexerWsUrl:proxy.ws};
   let wallet;
   let stage='initialization';
-  const cache=readWalletCache(cacheDirectory);
   try {
+    const cache=readWalletCache(cacheDirectory);
     wallet = await withTimeout(sdk.WalletFacade.init({configuration,
     shielded:cfg=>cache?sdk.ShieldedWallet(cfg).restore(cache.shielded):sdk.ShieldedWallet(cfg).startWithSecretKeys(shielded),
     unshielded:cfg=>cache?sdk.UnshieldedWallet(cfg).restore(cache.unshielded):sdk.UnshieldedWallet(cfg).startWithPublicKey(sdk.PublicKey.fromKeyStore(keystore)),

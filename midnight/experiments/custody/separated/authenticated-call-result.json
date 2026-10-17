@@ -1,0 +1,13 @@
+{
+  "format": "shroudly-authenticated-call-feasibility-v1",
+  "checkedAt": "2026-10-17T14:53:17.056Z",
+  "compiler": "0.31.1",
+  "ledger": "ledger-8.0.2",
+  "externalTargetCompiled": true,
+  "rejected": true,
+  "reason": "cross-contract calls are not yet supported",
+  "sources": {
+    "AuthenticatedAsset.compact": "8f2074fe6397f89d0fdf5be34bf48f379c0b8f8f919c95c9d254db51be8f4eff",
+    "CrossContractPool.compact": "912114e59bc5b72aa822323e2eb9449940c9aa036617bc4b29d4d886541e4dde"
+  }
+}
