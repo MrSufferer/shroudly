@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import * as sdk from '@midnight-ntwrk/wallet-sdk';
 import * as ledger from '@midnight-ntwrk/ledger-v8';
 import { providerProxy } from './provider-proxy.mjs';
+import { readWalletCache, saveWalletCache } from './wallet-cache.mjs';
 import { withTimeout } from '../../../scripts/midnight-deploy-preprod.mjs';
 
 // This module never logs credentials, account identifiers, transactions or SDK errors.
@@ -45,7 +46,7 @@ export function progressSnapshot(state){
   return {shielded:pick(state?.shielded),unshielded:pick(state?.unshielded),dust:pick(state?.dust)};
 }
 
-export async function openProtectedWallet(path, timeoutMs=900000, onProgress) {
+export async function openProtectedWallet(path, timeoutMs=900000, onProgress, cacheDirectory) {
   const {seed,configuration,token,endpoints} = protectedConfiguration(path);
   const hd = sdk.HDWallet.fromSeed(seed);
   seed.fill(0);
@@ -61,19 +62,22 @@ export async function openProtectedWallet(path, timeoutMs=900000, onProgress) {
   configuration.indexerClientConnection={indexerHttpUrl:proxy.http,indexerWsUrl:proxy.ws};
   let wallet;
   let stage='initialization';
+  const cache=readWalletCache(cacheDirectory);
   try {
     wallet = await withTimeout(sdk.WalletFacade.init({configuration,
-    shielded:cfg=>sdk.ShieldedWallet(cfg).startWithSecretKeys(shielded),
-    unshielded:cfg=>sdk.UnshieldedWallet(cfg).startWithPublicKey(sdk.PublicKey.fromKeyStore(keystore)),
-    dust:cfg=>sdk.DustWallet(cfg).startWithSecretKey(dust,ledger.LedgerParameters.initialParameters().dust),
+    shielded:cfg=>cache?sdk.ShieldedWallet(cfg).restore(cache.shielded):sdk.ShieldedWallet(cfg).startWithSecretKeys(shielded),
+    unshielded:cfg=>cache?sdk.UnshieldedWallet(cfg).restore(cache.unshielded):sdk.UnshieldedWallet(cfg).startWithPublicKey(sdk.PublicKey.fromKeyStore(keystore)),
+    dust:cfg=>cache?sdk.DustWallet(cfg).restore(cache.dust):sdk.DustWallet(cfg).startWithSecretKey(dust,ledger.LedgerParameters.initialParameters().dust),
     }),timeoutMs,'wallet initialization');
     stage='startup';
     await withTimeout(wallet.start(shielded,dust),timeoutMs,'wallet startup');
     stage='synchronization';
     const watcher=onProgress?wallet.state().subscribe({next:state=>{try{onProgress(progressSnapshot(state));}catch{}},error:()=>{}}):undefined;
+    const saver=cacheDirectory?setInterval(()=>saveWalletCache(cacheDirectory,wallet).catch(()=>{}),60000):undefined;
     let state;
-    try{state = await withTimeout(wallet.waitForSyncedState(),timeoutMs,'wallet synchronization');}finally{watcher?.unsubscribe();}
-    return {wallet,shielded,dust,keystore,configuration,state,close:async()=>{try{await withTimeout(wallet.stop(),10000,'wallet cleanup');}finally{await proxy.close();}}};
+    try{state = await withTimeout(wallet.waitForSyncedState(),timeoutMs,'wallet synchronization');}finally{watcher?.unsubscribe();clearInterval(saver);}
+    if(cacheDirectory)await saveWalletCache(cacheDirectory,wallet).catch(()=>{});
+    return {wallet,shielded,dust,keystore,configuration,state,restoredFromCache:Boolean(cache),close:async()=>{try{await withTimeout(wallet.stop(),10000,'wallet cleanup');}finally{await proxy.close();}}};
   } catch(error) {
     if(wallet)await withTimeout(wallet.stop(),10000,'wallet cleanup').catch(()=>{});
     await proxy.close();

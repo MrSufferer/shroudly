@@ -11,6 +11,7 @@ import { reconcileCustody, sanitizeStep } from './reconciliation.mjs';
 // Child stdout/stderr are discarded (SDKs may log URLs). The parent persists only an
 // explicit allowlist projection; no credential, seed, URL or SDK error text is retained.
 const LOCK = '/tmp/shroudly-wallet.lock';
+const CACHE = process.env.SHROUDLY_CUSTODY_WALLET_CACHE || '/tmp/shroudly-custody-wallet-cache';
 const managed = new URL('../../managed/custody-probe/', import.meta.url);
 const resultPath = fileURLToPath(new URL('./network-journey-result.json', import.meta.url));
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -45,17 +46,25 @@ async function worker(envPath) {
 
   let last = 0;
   const syncStarted = Date.now();
-  const opened = await openProtectedWallet(envPath, 3 * 3600 * 1000 - 600000, (progress) => { if (Date.now() - last > 20000) { last = Date.now(); send({ progress }); } });
+  const opened = await openProtectedWallet(envPath, 3 * 3600 * 1000 - 600000, (progress) => { if (Date.now() - last > 20000) { last = Date.now(); send({ progress }); } }, CACHE);
   let privateDirectory;
   try {
-    send({ step: { name: 'wallet-sync', elapsedMs: Date.now() - syncStarted, status: 'Synchronized' } });
+    send({ step: { name: opened.restoredFromCache ? 'wallet-sync-from-cache' : 'wallet-sync', elapsedMs: Date.now() - syncStarted, status: 'Synchronized' } });
     const sum = (record) => Object.values(record ?? {}).reduce((a, b) => a + BigInt(b), 0n);
     const dustNow = () => opened.state.dust.balance(new Date());
+    send({ funding: { nightBalance: sum(opened.state.unshielded.balances).toString(), dustBalance: dustNow().toString() } });
+    // DUST registration is owned by the #23 run; this journey only waits for positive DUST.
+    const dustWaitStarted = Date.now();
+    while (opened.state.dust.balance(new Date()) <= 0n) {
+      if (Date.now() - dustWaitStarted > 2 * 3600 * 1000) throw Error('no positive DUST within wait window');
+      await sleep(60000);
+      opened.state = await opened.wallet.waitForSyncedState();
+    }
     send({ funding: { nightBalance: sum(opened.state.unshielded.balances).toString(), dustBalance: dustNow().toString() } });
 
     // Providers (token-free loopback routes owned by the protected wallet module).
     const rpc = opened.configuration.relayURL;
-    const { http, ws } = opened.configuration.indexerClientConnection;
+    const { indexerHttpUrl: http, indexerWsUrl: ws } = opened.configuration.indexerClientConnection;
     const node = await nodeModule.PolkadotNodeClient.init({ nodeURL: new URL(rpc) });
     const midnightProvider = { submitTx: async (finalized) => {
       const id = deployScript.finalizedTransactionId(finalized);
