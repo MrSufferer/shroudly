@@ -1,0 +1,33 @@
+pragma language_version >= 0.22 && <= 0.23;
+import CompactStandardLibrary;
+// Isolated valueless recovery feasibility probe for issue #24. Not the
+// Prize-Savings Pool, tMIX, or an authority/ADR migration.
+//
+// The public ledger holds only a commitment to (secret, round) plus a public
+// action counter. An action succeeds only when the participant's private
+// witness material is current: a restored older copy, or a copy missing the
+// newest round, cannot prove it, so decryption alone never establishes freshness.
+export ledger commitment: Bytes<32>;
+export ledger round: Counter;
+
+witness secretKey(): Bytes<32>;
+witness privateRound(): Uint<64>;
+// Advances the participant's private round as part of the same circuit call.
+witness advanceLocal(): Uint<64>;
+
+pure circuit bind(key: Bytes<32>, at: Uint<64>): Bytes<32> {
+  return persistentHash<[Bytes<32>, Uint<64>, Bytes<32>]>([pad(32, "Shroudly/recovery-probe"), at, key]);
+}
+
+constructor() {
+  commitment = disclose(bind(secretKey(), 0));
+}
+
+export circuit advance(): [] {
+  const key = secretKey();
+  const at = privateRound();
+  assert(disclose(bind(key, at) == commitment), "private state is stale or foreign");
+  const next = advanceLocal();
+  commitment = disclose(bind(key, next));
+  round.increment(1);
+}
