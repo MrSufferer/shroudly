@@ -27,7 +27,9 @@
     "render:stage7": "node scripts/deploy-render-stage7.mjs",
     "midnight:check": "pnpm midnight:profile && pnpm midnight:compile:keys && pnpm midnight:profile && pnpm midnight:test",
     "midnight:experiment:offline": "node midnight/experiments/offline-participation/run.mjs",
-    "test:midnight:offline": "node --test midnight/experiments/offline-participation/qualification.test.mjs"
+    "test:midnight:offline": "node --test midnight/experiments/offline-participation/qualification.test.mjs",
+    "midnight:experiment:public-retirement": "node midnight/experiments/public-retirement/run.mjs",
+    "test:midnight:public-retirement": "node --test midnight/experiments/public-retirement/*.test.mjs"
   },
   "engines": {
     "node": ">=22"

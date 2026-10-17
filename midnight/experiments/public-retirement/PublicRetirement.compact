@@ -1,0 +1,196 @@
+pragma language_version >= 0.22 && <= 0.23;
+import CompactStandardLibrary;
+
+// EXPERIMENT for #22 (ADR 0031): owner-side acceptance sampling (6B) with public retirement.
+// Custody is synthetic and draw randomness is caller-chosen. Not a release contract.
+
+export ledger t0: Uint<64>;
+// Disclosure Cohort: live identities needed before a draw selects. A parameter only so mechanics
+// tests can run with fewer wallets; the program value is five (ADR 0027).
+export ledger cohort: Uint<64>;
+// Note index -> commitment to (balance, index). The index is public by the accepted relaxation.
+export ledger notes: Map<Uint<64>, Bytes<32>>;
+export ledger createdAt: Map<Uint<64>, Uint<64>>;
+// Public retirement: note index -> retirement bucket start (conservative: weight stops at bucket start).
+export ledger retiredAt: Map<Uint<64>, Uint<64>>;
+export ledger liveNote: Map<Bytes<32>, Uint<64>>;
+export ledger noteCount: Uint<64>;
+// Dense sampling slots over live and not-yet-compacted notes.
+export ledger slots: Map<Uint<64>, Uint<64>>;
+export ledger slotOf: Map<Uint<64>, Uint<64>>;
+export ledger slotCount: Uint<64>;
+// FIFO of retired notes awaiting compaction; retirement buckets are non-decreasing along it.
+export ledger pending: Map<Uint<64>, Uint<64>>;
+export ledger pendingHead: Uint<64>;
+export ledger pendingTail: Uint<64>;
+// Draws: one per Draw Interval, closed in order. Randomness is caller-chosen in this experiment.
+export ledger nextDraw: Uint<64>;
+export ledger drawSize: Map<Uint<64>, Uint<64>>;
+export ledger drawNote: Map<Uint<64>, Uint<64>>;
+export ledger drawU: Map<Uint<64>, Uint<64>>;
+export ledger drawDeadline: Map<Uint<64>, Uint<64>>;
+export ledger drawCohort: Map<Uint<64>, Uint<64>>;
+export ledger claimed: Set<Uint<64>>;
+
+constructor(start: Uint<64>, minCohort: Uint<64>) {
+  t0 = disclose(start);
+  cohort = disclose(minCohort);
+}
+
+witness secret(): Bytes<32>;
+witness balance(): Uint<64>;
+witness amount(): Uint<64>;
+
+export pure circuit identityTag(sec: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([sec, pad(32, "shroudly:identity")]);
+}
+
+export pure circuit noteCommitment(bal: Uint<64>, idx: Uint<64>, sec: Bytes<32>): Bytes<32> {
+  return persistentCommit<Vector<2, Uint<64>>>([bal, idx],
+    persistentHash<Vector<2, Bytes<32>>>([sec, pad(32, "shroudly:note")]));
+}
+
+// Returns the bucket start; the bucket grid is aligned with the 900 s Draw Interval.
+circuit currentBucket(bucket: Uint<64>): Uint<64> {
+  const lo = (t0 + 60 * disclose(bucket)) as Uint<64>;
+  assert(blockTimeGte(lo), "bucket not started");
+  assert(blockTimeLt((lo + 60) as Uint<64>), "bucket ended");
+  return lo;
+}
+
+circuit createNote(tag: Bytes<32>, bal: Uint<64>, sec: Bytes<32>, lo: Uint<64>): [] {
+  const idx = noteCount;
+  notes.insert(idx, disclose(noteCommitment(bal, idx, sec)));
+  // Conservative: creation counts from the end of its bucket.
+  createdAt.insert(idx, (lo + 60) as Uint<64>);
+  liveNote.insert(tag, idx);
+  slots.insert(slotCount, idx);
+  slotOf.insert(idx, slotCount);
+  slotCount = (slotCount + 1) as Uint<64>;
+  noteCount = (idx + 1) as Uint<64>;
+}
+
+export circuit enroll(bucket: Uint<64>): [] {
+  const lo = currentBucket(bucket);
+  const sec = secret();
+  const amt = amount();
+  const tag = disclose(identityTag(sec));
+  assert(!liveNote.member(tag), "identity already has a live note");
+  assert(amt >= 1000000, "contribution below 1 tMIX");
+  assert(amt <= 1000000000, "contribution bound exceeded");
+  createNote(tag, amt, sec, lo);
+}
+
+// Opens the identity's live note and retires it publicly. Lineage is the accepted disclosure.
+circuit retireLive(tag: Bytes<32>, bal: Uint<64>, sec: Bytes<32>, lo: Uint<64>): [] {
+  assert(liveNote.member(tag), "no live note");
+  const idx = liveNote.lookup(tag);
+  assert(notes.lookup(idx) == noteCommitment(bal, idx, sec), "stale private state");
+  retiredAt.insert(idx, lo);
+  liveNote.remove(tag);
+  pending.insert(pendingTail, idx);
+  pendingTail = (pendingTail + 1) as Uint<64>;
+}
+
+export circuit contribute(bucket: Uint<64>): [] {
+  const lo = currentBucket(bucket);
+  const sec = secret();
+  const bal = balance();
+  const amt = amount();
+  const tag = disclose(identityTag(sec));
+  retireLive(tag, bal, sec, lo);
+  assert(amt >= 1000000, "contribution below 1 tMIX");
+  const next = bal + amt;
+  assert(next <= 1000000000, "contribution bound exceeded");
+  createNote(tag, next as Uint<64>, sec, lo);
+}
+
+export circuit withdraw(bucket: Uint<64>): [] {
+  const lo = currentBucket(bucket);
+  const sec = secret();
+  const bal = balance();
+  const amt = amount();
+  const tag = disclose(identityTag(sec));
+  retireLive(tag, bal, sec, lo);
+  assert(amt > 0, "withdrawal must be positive");
+  assert(amt <= bal, "withdrawal exceeds Principal");
+  const next = (bal - amt) as Uint<64>;
+  // A full exit ends the lineage without a successor; the end of lineage is public anyway.
+  if (disclose(next > 0)) {
+    createNote(tag, next, sec, lo);
+  }
+}
+
+circuit intervalStart(j: Uint<64>): Uint<64> {
+  return (t0 + 900 * j) as Uint<64>;
+}
+
+circuit overlap(tc: Uint<64>, tr: Uint<64>, s: Uint<64>, e: Uint<64>): Uint<64> {
+  const a = tc > s ? tc : s;
+  const b = tr < e ? tr : e;
+  return b > a ? ((b - a) as Uint<64>) : (0 as Uint<64>);
+}
+
+// Permissionless swap-remove of the oldest retired note once it has no weight in any unresolved interval.
+export circuit compactRetired(): [] {
+  assert(pendingHead < pendingTail, "nothing to compact");
+  const idx = pending.lookup(pendingHead);
+  assert(retiredAt.lookup(idx) <= intervalStart(nextDraw), "retired note still weighted in an unresolved interval");
+  const k = slotOf.lookup(idx);
+  const last = (slotCount - 1) as Uint<64>;
+  if (k != last) {
+    const moved = slots.lookup(last);
+    slots.insert(k, moved);
+    slotOf.insert(moved, k);
+  }
+  slots.remove(last);
+  slotOf.remove(idx);
+  slotCount = last;
+  pending.remove(pendingHead);
+  pendingHead = (pendingHead + 1) as Uint<64>;
+}
+
+export circuit closeDraw(bucket: Uint<64>, slot: Uint<64>, u: Uint<64>): [] {
+  const lo = currentBucket(bucket);
+  const j = nextDraw;
+  const s = intervalStart(j);
+  assert(lo >= (s + 900) as Uint<64>, "interval not ended");
+  if (pendingHead < pendingTail) {
+    assert(retiredAt.lookup(pending.lookup(pendingHead)) > s, "compact retired notes first");
+  }
+  const k = disclose(slot);
+  const v = disclose(u);
+  assert(v < 900000000000, "threshold above W_max");
+  // Live identity tags are public under the accepted lineage disclosure, so counting them adds no
+  // disclosure. They count credentials, not people (ADR 0028). Below the cohort: Prize Rollover.
+  const live = liveNote.size();
+  const size = live >= cohort ? slotCount : (0 as Uint<64>);
+  drawCohort.insert(j, live);
+  drawSize.insert(j, size);
+  drawU.insert(j, v);
+  // ADR 0030: at least sixty minutes after the closing transaction.
+  drawDeadline.insert(j, (lo + 60 + 3600) as Uint<64>);
+  if (size > 0) {
+    assert(k < slotCount, "slot out of range");
+    drawNote.insert(j, slots.lookup(k));
+  }
+  nextDraw = (j + 1) as Uint<64>;
+}
+
+// Owner-side acceptance: the sampled note's owner proves u < balance x overlap without revealing either.
+export circuit claim(draw: Uint<64>): [] {
+  const d = disclose(draw);
+  assert(d < nextDraw, "draw not closed");
+  assert(drawSize.lookup(d) > 0, "no selection: empty draw or below Disclosure Cohort");
+  assert(!claimed.member(d), "prize already claimed");
+  assert(blockTimeLt(drawDeadline.lookup(d)), "claim window closed");
+  const idx = drawNote.lookup(d);
+  const sec = secret();
+  const bal = balance();
+  assert(notes.lookup(idx) == noteCommitment(bal, idx, sec), "not the sampled note owner");
+  const s = intervalStart(d);
+  const tr = retiredAt.member(idx) ? retiredAt.lookup(idx) : (18446744073709551615 as Uint<64>);
+  const w = bal * overlap(createdAt.lookup(idx), tr, s, (s + 900) as Uint<64>);
+  assert(drawU.lookup(d) < w, "rejected: prize rolls over");
+  claimed.insert(d);
+}
