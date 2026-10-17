@@ -15,14 +15,14 @@ function protectedConfiguration(path) {
     return result.stdout.trim();
   };
 
-  const authenticated = (value, host, path) => {
+  const authenticated = (value, host, path, protocols) => {
     const url = new URL(value);
-    if (url.hostname !== host || url.pathname !== path || url.username || url.password || url.search || url.hash) throw Error('endpoint outside approved Preprod route');
+    if (!protocols.includes(url.protocol) || url.port || url.hostname !== host || url.pathname !== path || url.username || url.password || url.search || url.hash) throw Error('endpoint outside approved Preprod route');
     return url.toString();
   };
-  const http = authenticated(env.MIDNIGHT_INDEXER_HTTP_URL, 'midnight-preprod.blockfrost.io', '/api/v0');
-  const ws = authenticated(env.MIDNIGHT_INDEXER_WS_URL, 'midnight-preprod.blockfrost.io', '/api/v0/ws');
-  const rpc = authenticated(env.MIDNIGHT_RPC_URL, 'rpc.midnight-preprod.blockfrost.io', '/');
+  const http = authenticated(env.MIDNIGHT_INDEXER_HTTP_URL, 'midnight-preprod.blockfrost.io', '/api/v0', ['https:']);
+  const ws = authenticated(env.MIDNIGHT_INDEXER_WS_URL, 'midnight-preprod.blockfrost.io', '/api/v0/ws', ['wss:']);
+  const rpc = authenticated(env.MIDNIGHT_RPC_URL, 'rpc.midnight-preprod.blockfrost.io', '/', ['https:', 'wss:']);
   const prover = new URL(env.MIDNIGHT_PROOF_SERVER_URL);
   if (!['127.0.0.1','localhost'].includes(prover.hostname) || prover.username || prover.password || prover.search || prover.hash) throw Error('prover must be participant-local');
   const seed = read(`${env.MIDNIGHT_WALLET_SERVICE_PREFIX || 'com.shroudly.preprod.wallet.'}${env.MIDNIGHT_DEPLOYER_SECRET_NAME}`);
