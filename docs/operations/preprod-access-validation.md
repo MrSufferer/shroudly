@@ -17,15 +17,17 @@ Operator attestation, not an independently measured balance. The Operator
 authorized continuation with these protected credentials. Browser lifecycle and compatibility qualification
 remain outstanding.
 
-The sanitized CLI run at **2026-10-17T05:16:30.173Z** and separate protected
+The sanitized CLI run at **2026-10-17T05:20:16.486Z** and separate protected
 Keychain metadata checks observed:
 
 | Check | Result |
 | --- | --- |
 | Deployment signer Keychain metadata | Present; seed not read or validated |
 | Private-state password Keychain metadata | Present; password not read |
-| Blockfrost Keychain metadata | Present; credential read did not complete within the bound |
-| Indexer HTTP / WebSocket and node RPC | Not probed because private authorization was unavailable |
+| Blockfrost authorization | Private Keychain read succeeded; authenticated requests accepted |
+| Indexer HTTP | HTTP 200; valid GraphQL response |
+| Indexer WebSocket | Valid `graphql-transport-ws` connection acknowledgement |
+| Node RPC | HTTP 200; `system_chain` confirmed Midnight Preprod |
 | Local proof service | HTTP 200 and exact `/version` response **8.1.0** |
 | GitHub repository access | Pull, push, maintain and admin permissions observed |
 | Separate Vercel project | `shroudly-preprod` created and project metadata readable |
@@ -61,10 +63,6 @@ credentials through their respective owners using the runbook.
 
 ## Remaining access work
 
-- Allow the protected Blockfrost credential read, then validate both indexer
-  transports and the Preprod RPC chain. Metadata alone is insufficient.
-  The Operator reported that the macOS login-Keychain password prompt was
-  stuck; protected reads timed out. Credential-read retries were stopped.
 - Complete the Vercel build configuration with a genuine deployment label and
   usable browser-safe endpoints. Blockfrost's authenticated routing URLs must
   not distribute the private token through `VITE_*` values. Contract IDs and
@@ -79,3 +77,8 @@ Mainnet transactional entrypoints remain disabled. The CLI reports
 `accessReady: false`, exits 1, and leaves qualification outstanding. Issue #20
 remains open for the access work above; full stack qualification belongs to
 subsequent experiments.
+
+Earlier credential reads timed out while the login-Keychain prompt was stuck.
+After the Operator accepted access and requested a retry, the private read and
+all three authenticated network probes passed. The credential value was never
+printed or persisted by these checks.
