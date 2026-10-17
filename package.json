@@ -25,7 +25,9 @@
     "midnight:deploy:preprod": "node scripts/midnight-deploy-preprod.mjs",
     "midnight:test": "pnpm --filter @shroudly/web test && pnpm --filter @shroudly/contracts test && pnpm test:midnight-deploy",
     "render:stage7": "node scripts/deploy-render-stage7.mjs",
-    "midnight:check": "pnpm midnight:profile && pnpm midnight:compile:keys && pnpm midnight:profile && pnpm midnight:test"
+    "midnight:check": "pnpm midnight:profile && pnpm midnight:compile:keys && pnpm midnight:profile && pnpm midnight:test",
+    "midnight:experiment:offline": "node midnight/experiments/offline-participation/run.mjs",
+    "test:midnight:offline": "node --test midnight/experiments/offline-participation/qualification.test.mjs"
   },
   "engines": {
     "node": ">=22"

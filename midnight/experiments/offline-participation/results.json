@@ -1,0 +1,132 @@
+{
+  "recordedAt": "2026-10-17T06:42:48.247Z",
+  "releaseQualified": false,
+  "classification": "rejected-protocol-probe-and-baseline-diagnostics",
+  "toolchain": {
+    "node": "v24.10.0",
+    "cli": "compact 0.5.2",
+    "compiler": "0.31.1",
+    "runtime": "0.16.0",
+    "proofServer": "8.1.0 (existing local Docker image; not remotely attested)"
+  },
+  "sourceHashes": {
+    "baseline": "455bce5a14fa9a3c9a009b9ea77a6ab3c12253794cd9631700cab2773612c882",
+    "probe": "4052bba74f4f06704c5942e3bdbcc4629bd60c5b45902cca47ddab9220926bc0"
+  },
+  "baselineCompileMs": 817,
+  "probeCompileMs": 4747,
+  "baseline": {
+    "seededFixture": {
+      "notReachableFromConstructor": true,
+      "admitted": 5,
+      "sixthFailure": "failed assert: the bounded Preprod cohort is full",
+      "sameIdentityBalance": "2000000000",
+      "sameNoteReplayAccepted": true,
+      "transcriptAudit": {
+        "amountEncodingObserved": true,
+        "ownerEncodingObserved": true,
+        "operations": 99
+      },
+      "withdrawal": {
+        "runtimeAccepted": true,
+        "unresolvedDrawId": "1"
+      }
+    },
+    "releaseQualified": false,
+    "evidence": {
+      "kind": "generated-compact-runtime",
+      "proofsGenerated": 0,
+      "networkTransactions": 0
+    },
+    "capacity": {
+      "attempted": 8,
+      "admitted": 0,
+      "failures": [
+        "Error: expected a cell, received null",
+        "Error: expected a cell, received null",
+        "Error: expected a cell, received null",
+        "Error: expected a cell, received null",
+        "Error: expected a cell, received null",
+        "Error: expected a cell, received null",
+        "Error: expected a cell, received null",
+        "Error: expected a cell, received null"
+      ]
+    },
+    "ledger": {
+      "exportedParticipantCount": "0",
+      "rawStateBytes": 1776,
+      "unexportedFieldsArePublic": true
+    },
+    "elapsedMs": 352
+  },
+  "witnessProbe": {
+    "releaseQualified": false,
+    "capacity": 8,
+    "controlWinner": 7,
+    "offlineFailure": "private opening unavailable to offline caller",
+    "controlUsesAllParticipantOpenings": true,
+    "registrationMs": [
+      1.25,
+      1.1,
+      1.11,
+      1.16,
+      1.34,
+      1.21,
+      1.28,
+      1.3
+    ],
+    "selectionMs": 5.5,
+    "publicTranscriptOperations": 35,
+    "privateWitnessOutputs": 2,
+    "proofsGenerated": 1,
+    "proofCheck": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "proofBytes": 4508,
+    "proofMs": 1649
+  },
+  "artifacts": {
+    "prover": {
+      "bytes": 9966774,
+      "sha256": "aad150a438624215c2fd6a821a039f0e0861645bba0d777fa4e76b577ca14b0d"
+    },
+    "verifier": {
+      "bytes": 2119,
+      "sha256": "5804f5817754b1987afa01be6b6919c191f4956737969f7683cc5dc614a735e3"
+    }
+  }
+}

@@ -1,0 +1,52 @@
+pragma language_version >= 0.22 && <= 0.23;
+import CompactStandardLibrary;
+
+// REJECTED PROTOCOL PROBE: no custody, time weighting, cap, or secure randomness.
+// Isolates whether commitments supply a future caller with private operands.
+export ledger commitments: Map<Uint<8>, Bytes<32>>;
+export ledger winner: Uint<8>;
+witness weights(): Vector<8, Uint<64>>;
+witness openings(): Vector<8, Bytes<32>>;
+
+export pure circuit weightCommitment(weight: Uint<64>, opening: Bytes<32>): Bytes<32> {
+  return persistentCommit<Uint<64>>(weight, opening);
+}
+
+export circuit register(slot: Uint<8>, commitment: Bytes<32>): [] {
+  assert(slot < 8, "probe capacity is eight");
+  assert(!commitments.member(disclose(slot)), "slot already registered");
+  commitments.insert(disclose(slot), disclose(commitment));
+}
+
+export circuit select(ticket: Uint<64>): [] {
+  const values = weights();
+  const salts = openings();
+  assert(values[0] > 0, "positive weight required");
+  assert(weightCommitment(values[0], salts[0]) == commitments.lookup(0), "opening mismatch");
+  assert(values[1] > 0, "positive weight required");
+  assert(weightCommitment(values[1], salts[1]) == commitments.lookup(1), "opening mismatch");
+  assert(values[2] > 0, "positive weight required");
+  assert(weightCommitment(values[2], salts[2]) == commitments.lookup(2), "opening mismatch");
+  assert(values[3] > 0, "positive weight required");
+  assert(weightCommitment(values[3], salts[3]) == commitments.lookup(3), "opening mismatch");
+  assert(values[4] > 0, "positive weight required");
+  assert(weightCommitment(values[4], salts[4]) == commitments.lookup(4), "opening mismatch");
+  assert(values[5] > 0, "positive weight required");
+  assert(weightCommitment(values[5], salts[5]) == commitments.lookup(5), "opening mismatch");
+  assert(values[6] > 0, "positive weight required");
+  assert(weightCommitment(values[6], salts[6]) == commitments.lookup(6), "opening mismatch");
+  assert(values[7] > 0, "positive weight required");
+  assert(weightCommitment(values[7], salts[7]) == commitments.lookup(7), "opening mismatch");
+  const total = (values[0] + values[1] + values[2] + values[3] + values[4] + values[5] + values[6] + values[7]) as Uint<64>;
+  assert(ticket < total, "ticket out of range");
+  const selected =
+    ticket < values[0] ? 0 :
+    ticket < values[0] + values[1] ? 1 :
+    ticket < values[0] + values[1] + values[2] ? 2 :
+    ticket < values[0] + values[1] + values[2] + values[3] ? 3 :
+    ticket < values[0] + values[1] + values[2] + values[3] + values[4] ? 4 :
+    ticket < values[0] + values[1] + values[2] + values[3] + values[4] + values[5] ? 5 :
+    ticket < values[0] + values[1] + values[2] + values[3] + values[4] + values[5] + values[6] ? 6 :
+    7;
+  winner = disclose(selected as Uint<8>);
+}
