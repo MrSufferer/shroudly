@@ -132,12 +132,12 @@ Contract identifiers and artifact hashes are populated after genuine deployment.
 
    For a Docker installation, inspect any existing container before starting a
    duplicate. The pinned image observed for this setup is
-   `midnightntwrk/proof-server:8.1.0` at digest
-   `sha256:801bbc0340e9e96f16735f77b523f23c7459e3359842f7c79c2c53f4e994d531`.
+   `midnightntwrk/proof-server:8.1.3` at digest
+   `sha256:0f4ab0716985eaebbe55a970348f52ff05ffd8a96631ed7232bd0c4ba02c115c`.
    Start a new instance only when needed:
 
    ```sh
-   docker run -d --name shroudly-preprod-proof-server -p 127.0.0.1:6300:6300 midnightntwrk/proof-server@sha256:801bbc0340e9e96f16735f77b523f23c7459e3359842f7c79c2c53f4e994d531
+   docker run -d --name shroudly-preprod-proof-server -p 127.0.0.1:6300:6300 midnightntwrk/proof-server@sha256:0f4ab0716985eaebbe55a970348f52ff05ffd8a96631ed7232bd0c4ba02c115c
    ```
 
    Recover a stopped instance with
