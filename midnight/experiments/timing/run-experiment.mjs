@@ -155,7 +155,7 @@ if (process.argv[2] === '--worker') {
     save();
     emit({done: true});
   } catch (error) {
-    evidence.failure = errorClass(error); save();
+    evidence.failure = errorClass(error); save(); process.exitCode = 1;
     emit({done: false, error: errorClass(error), detail: errorDetail(error)});
   } finally { await session?.opened.close().catch(() => {}); process.exit(); }
 } else {
