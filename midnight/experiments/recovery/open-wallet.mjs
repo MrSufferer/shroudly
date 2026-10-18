@@ -20,6 +20,10 @@ export const progressOf=state=>{
 
 export async function openWalletWithProgress(path,{timeoutMs=1_800_000,onProgress=()=>{}}={}) {
   const {seed,configuration,token,endpoints}=protectedConfiguration(path);
+  // At Preprod's floor fee price a call that moves no coins (advance) costs 0 DUST;
+  // dust-wallet 4.2.0 then selects no DUST and re-prices the empty intent forever,
+  // until wasm traps with `unreachable`. A nonzero overhead makes the first pass select DUST.
+  configuration.costParameters={...configuration.costParameters,additionalFeeOverhead:1_000_000_000n};
   const hd=sdk.HDWallet.fromSeed(seed);seed.fill(0);
   if(hd.type!=='seedOk')throw Error('invalid deployment seed');
   const keys=hd.hdWallet.selectAccount(0).selectRoles([sdk.Roles.NightExternal,sdk.Roles.Dust,sdk.Roles.Zswap]).deriveKeysAt(0);
