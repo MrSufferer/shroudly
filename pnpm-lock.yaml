@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@midnight-ntwrk/onchain-runtime-v3': 3.0.0
+
 importers:
 
   .:
@@ -59,7 +62,7 @@ importers:
         version: 1.58.2
       vite:
         specifier: 7.3.5
-        version: 7.3.5
+        version: 7.3.5(@types/node@24.10.0)
       vite-plugin-wasm:
         specifier: 3.6.0
         version: 3.6.0(vite@7.3.5)
@@ -786,7 +789,7 @@ packages:
   /@midnight-ntwrk/compact-runtime@0.16.0:
     resolution: {integrity: sha512-UR8+MI5zol+gkne17ZZru8xmZNf11xMgQJkiLT9KWsF+QD8Wuz1WONaqQLL0RAZ2aN2XlRsBFd0ViKDVh8prFw==}
     dependencies:
-      '@midnight-ntwrk/onchain-runtime-v3': 3.1.1
+      '@midnight-ntwrk/onchain-runtime-v3': 3.0.0
       '@types/object-inspect': 1.13.0
       object-inspect: 1.13.4
     dev: false
@@ -899,10 +902,6 @@ packages:
 
   /@midnight-ntwrk/onchain-runtime-v3@3.0.0:
     resolution: {integrity: sha512-HbFbUOsvgpEFy1OT0Ni2LMFk4jnMQS1em+H+Mof/B3DpnNKl0Lkx5QiulKOc6pyU4KPEagOqx4fYNyVXFwgZ7g==}
-    dev: false
-
-  /@midnight-ntwrk/onchain-runtime-v3@3.1.1:
-    resolution: {integrity: sha512-3H5soWI8fWrngV/BzFpZMbx/JsyaK0us8MYe+P8ruwR01SdVMZiypWZRmKq2Dmwn0ZurE3mOdyOd+oYPH7VvTA==}
     dev: false
 
   /@midnight-ntwrk/platform-js@2.2.4:
@@ -3599,57 +3598,7 @@ packages:
     peerDependencies:
       vite: ^2 || ^3 || ^4 || ^5 || ^6 || ^7 || ^8
     dependencies:
-      vite: 7.3.5
-    dev: true
-
-  /vite@7.3.5:
-    resolution: {integrity: sha512-KuOaNhcnGFN2zIPGA7wRmzF+lJA1sea7rHq17aiJ++9lzY1WWG6Jpwqwe1KNbRVPIqHmr8GLYx7jbrQcN/7/ww==}
-    engines: {node: ^20.19.0 || >=22.12.0}
-    hasBin: true
-    peerDependencies:
-      '@types/node': ^20.19.0 || >=22.12.0
-      jiti: '>=1.21.0'
-      less: ^4.0.0
-      lightningcss: ^1.21.0
-      sass: ^1.70.0
-      sass-embedded: ^1.70.0
-      stylus: '>=0.54.8'
-      sugarss: ^5.0.0
-      terser: ^5.16.0
-      tsx: ^4.8.1
-      yaml: ^2.4.2
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-      jiti:
-        optional: true
-      less:
-        optional: true
-      lightningcss:
-        optional: true
-      sass:
-        optional: true
-      sass-embedded:
-        optional: true
-      stylus:
-        optional: true
-      sugarss:
-        optional: true
-      terser:
-        optional: true
-      tsx:
-        optional: true
-      yaml:
-        optional: true
-    dependencies:
-      esbuild: 0.27.7
-      fdir: 6.5.0(picomatch@4.0.7)
-      picomatch: 4.0.7
-      postcss: 8.5.28
-      rollup: 4.63.1
-      tinyglobby: 0.2.17
-    optionalDependencies:
-      fsevents: 2.3.3
+      vite: 7.3.5(@types/node@24.10.0)
     dev: true
 
   /vite@7.3.5(@types/node@24.10.0):
