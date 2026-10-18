@@ -27,3 +27,26 @@ test('saved wallet state round-trips through an owner-only directory', async () 
     assert.equal(statSync(join(directory, 'dust.json')).mode & 0o777, 0o600);
   } finally { rmSync(parent, { recursive: true, force: true }); }
 });
+
+test('overlapping saves are serialized so every role file comes from one snapshot', async () => {
+  const parent = mkdtempSync(join(tmpdir(), 'custody-cache-test-'));
+  const directory = join(parent, 'cache');
+  let snapshot = 0;
+  const slowWallet = Object.fromEntries(['shielded', 'unshielded', 'dust'].map(role => [role, { serializeState: async () => { const value = `${role}-${snapshot}`; await new Promise(r => setTimeout(r, 5)); return value; } }]));
+  try {
+    const first = saveWalletCache(directory, slowWallet);
+    snapshot = 1;
+    await Promise.all([first, saveWalletCache(directory, slowWallet)]);
+    assert.deepEqual(readWalletCache(directory), { shielded: 'shielded-1', unshielded: 'unshielded-1', dust: 'dust-1' });
+  } finally { rmSync(parent, { recursive: true, force: true }); }
+});
+
+test('a cache saved by another wallet is refused rather than restored', async () => {
+  const parent = mkdtempSync(join(tmpdir(), 'custody-cache-test-'));
+  const directory = join(parent, 'cache');
+  try {
+    await saveWalletCache(directory, fakeWallet, 'owner-a');
+    assert.deepEqual(readWalletCache(directory, 'owner-a'), { shielded: 'S', unshielded: 'U', dust: 'D' });
+    assert.throws(() => readWalletCache(directory, 'owner-b'), /another wallet/);
+  } finally { rmSync(parent, { recursive: true, force: true }); }
+});

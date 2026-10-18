@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readContractLedger } from './runtime-state.mjs';
 import { evidenceManifest } from './evidence-manifest.mjs';
+import { submissionEvidence } from './submission-evidence.mjs';
 import { reconcileCustody, sanitizeStep } from './reconciliation.mjs';
 import { firstValueFrom, filter } from 'rxjs';
 
@@ -54,10 +55,12 @@ async function worker(envPath) {
     try { opened.state = await settledState(opened.wallet); return await fn(); }
     finally { try { rmdirSync(LOCK); } catch { /* already released */ } lockHeld = false; send({ lock: 'released' }); }
   };
+  // A pending spend of unknown outcome must not be saved into the cache another run will restore.
+  let outcomeUnknown = false;
   const step = async (name, fn) => {
     const started = Date.now();
     try { const value = await fn(); return { ok: true, value, elapsedMs: Date.now() - started }; }
-    catch (error) { send({ failure: { step: name, category: failureCategory(error) } }); if (error?.code === 'OUTCOME_UNKNOWN') throw error; return { ok: false }; }
+    catch (error) { send({ failure: { step: name, category: failureCategory(error) } }); if (error?.code === 'OUTCOME_UNKNOWN') { outcomeUnknown = true; throw error; } return { ok: false }; }
   };
 
   const [{ openProtectedWallet }, sdk, ledger, contracts, indexer, zkModule, proofModule, privateModule, compactJs, deployScript] = await Promise.all([
@@ -92,7 +95,7 @@ async function worker(envPath) {
     const { indexerHttpUrl: http, indexerWsUrl: ws } = opened.configuration.indexerClientConnection;
     const midnightProvider = { submitTx: async (finalized) => {
       const id = deployScript.finalizedTransactionId(finalized);
-      send({ submitted: { txHash: id, at: new Date().toISOString() } });
+      send({ submitted: { txHash: id, txBytes: finalized.serialize().length, at: new Date().toISOString() } });
       // The facade tracks the pending spend, waits for Finalized and reverts wallet state on failure.
       await bounded(opened.wallet.submitTransaction(finalized), 180000);
       send({ nodeFinalized: { txHash: id } });
@@ -168,11 +171,10 @@ async function worker(envPath) {
     };
     const publicOf = (finalized) => ({ txHash: finalized.public.txHash, blockHeight: Number(finalized.public.blockHeight), blockHash: finalized.public.blockHash, status: String(finalized.public.status) });
     const submitCall = (address, circuitId, args = [], target = probe) => withLock(opened, async () => {
-      const dustBefore = opened.state.dust.balance(new Date());
       const started = Date.now();
       const result = await contracts.submitCallTx(target.providers, { compiledContract: target.compiledContract, contractAddress: address, circuitId, args, privateStateId: target.tag });
-      const state = opened.state = await settledState(opened.wallet);
-      return { ...publicOf(result), elapsedMs: Date.now() - started, dustSpentApprox: (dustBefore - state.dust.balance(new Date())).toString() };
+      opened.state = await settledState(opened.wallet);
+      return { ...publicOf(result), elapsedMs: Date.now() - started };
     });
     const expectRejection = async (name, address, circuitId, args, expected) => {
       let rejected = false; let matched = false;
@@ -192,11 +194,10 @@ async function worker(envPath) {
     };
 
     const deployContract = (name, target, args = []) => withLock(opened, () => step(name, async () => {
-      const dustBefore = opened.state.dust.balance(new Date());
       const started = Date.now();
       const deployed = await contracts.deployContract(target.providers, { compiledContract: target.compiledContract, args, privateStateId: target.tag, initialPrivateState: {} });
-      const state = opened.state = await settledState(opened.wallet);
-      return { address: String(deployed.deployTxData.public.contractAddress ?? deployed.address), ...publicOf(deployed.deployTxData), elapsedMs: Date.now() - started, dustSpentApprox: (dustBefore - state.dust.balance(new Date())).toString() };
+      opened.state = await settledState(opened.wallet);
+      return { address: String(deployed.deployTxData.public.contractAddress ?? deployed.address), ...publicOf(deployed.deployTxData), elapsedMs: Date.now() - started };
     }));
 
     const colocated = async () => {
@@ -206,7 +207,7 @@ async function worker(envPath) {
     const address = deploy.value.address;
     send({ contract: address });
     const deployEvidence = await step('deploy-indexer', () => transactionEvidence(deploy.value.txHash, address));
-    send({ step: { name: 'deploy', txHash: deploy.value.txHash, blockHeight: deploy.value.blockHeight, blockHash: deploy.value.blockHash, status: deploy.value.status, elapsedMs: deploy.value.elapsedMs, dustSpentApprox: deploy.value.dustSpentApprox, txBytes: deployEvidence.value?.txBytes } });
+    send({ step: { name: 'deploy', txHash: deploy.value.txHash, blockHeight: deploy.value.blockHeight, blockHash: deploy.value.blockHash, status: deploy.value.status, elapsedMs: deploy.value.elapsedMs, txBytes: deployEvidence.value?.txBytes } });
 
     // 2. Seed (mint + receive shielded reserve to contract)
     const seed = await step('seed', () => submitCall(address, 'seed'));
@@ -247,8 +248,8 @@ async function worker(envPath) {
     // 6. Fresh-indexer reconciliation and wallet-side release observation
     const fresh = await step('fresh-reconciliation', () => freshReconciliation(address));
     if (fresh.ok) {
-      const finalContract = readContractLedger(readLedger, (await contracts.getPublicStates(indexer.indexerPublicDataProvider(http, ws), address)).contractState);
-      send({ custodyCommitment: { stage: 'withdraw', matched: withdrawEvidence.value?.outputs.some(output => output.commitment === contractCommitment(finalContract.custody, address)) === true } });
+      const finalContract = await step('withdraw-commitment', async () => readContractLedger(readLedger, (await contracts.getPublicStates(indexer.indexerPublicDataProvider(http, ws), address)).contractState));
+      send({ custodyCommitment: { stage: 'withdraw', matched: finalContract.ok && withdrawEvidence.value?.outputs.some(output => output.commitment === contractCommitment(finalContract.value.custody, address)) === true } });
       send({ reconciliation: fresh.value });
     }
     const finalState = await opened.wallet.waitForSyncedState();
@@ -296,7 +297,7 @@ async function worker(envPath) {
     if (lockHeld) { try { rmdirSync(LOCK); } catch { /* ignore */ } }
     if (privateDirectory) rmSync(privateDirectory, { recursive: true, force: true });
     const { saveWalletCache } = await import('./wallet-cache.mjs');
-    await saveWalletCache(CACHE, opened.wallet).catch(() => {});
+    if (!outcomeUnknown) await saveWalletCache(CACHE, opened.wallet, opened.owner).catch(() => {});
     await opened.close().catch(() => {});
   }
 }
@@ -323,13 +324,13 @@ child.on('message', (m) => {
     try {
       const base = sanitizeStep(m.step);
       for (const key of ['txBytes', 'contractOutputs', 'contractInputs']) if (num(m.step[key]) !== undefined) base[key] = m.step[key];
-      const dust = str(m.step.dustSpentApprox, /^-?\d{1,30}$/); if (dust) base.dustSpentApprox = dust;
       evidence.steps.push(base);
       console.error(JSON.stringify({ step: base.name, status: base.status }));
     } catch { evidence.failures.push({ step: 'evidence-projection', category: 'invalid-step-evidence' }); }
   }
-  if (m?.submitted && str(m.submitted.txHash, /^[0-9a-f]{64}$/)) { evidence.submissions.push({ txHash: m.submitted.txHash, nodeFinalized: false }); console.error(JSON.stringify({ submitted: m.submitted.txHash })); }
-  if (m?.nodeFinalized) { const submission = evidence.submissions.find(s => s.txHash === m.nodeFinalized.txHash); if (submission) submission.nodeFinalized = true; }
+  const submitted = m?.submitted && submissionEvidence(m.submitted.txHash);
+  if (submitted) { evidence.submissions.push({ ...submitted, txBytes: num(m.submitted.txBytes) }); console.error(JSON.stringify({ submitted: submitted.transactionId })); }
+  if (m?.nodeFinalized) { const submission = evidence.submissions.find(s => s.transactionId === m.nodeFinalized.txHash); if (submission) submission.nodeFinalized = true; }
   if (m?.previousRunReconciliation) evidence.previousRunReconciliation = { poolReportedCustody: str(m.previousRunReconciliation.poolReportedCustody, /^\d{1,30}$/), poolPrizeLiability: str(m.previousRunReconciliation.poolPrizeLiability, /^\d{1,30}$/) };
   if (m?.funding) evidence.funding = { nightBalance: str(m.funding.nightBalance, /^\d{1,30}$/), dustBalance: str(m.funding.dustBalance, /^\d{1,30}$/) };
   if (m?.separatedAsset) evidence.separatedAssetAddress = str(m.separatedAsset, /^[0-9a-f]{64}$/);
@@ -361,7 +362,8 @@ child.on('exit', () => {
     && evidence.custodyCommitments?.seed === true && evidence.custodyCommitments?.withdraw === true
     && evidence.steps.some(s => s.name === 'seed' && s.contractOutputs === 1)
     && evidence.steps.some(s => s.name === 'withdraw' && s.contractInputs === 1 && s.contractOutputs === 1)
-    && evidence.separatedFreshIndexerView?.reconciled === false;
+    && evidence.separatedFreshIndexerView?.reconciled === false
+    && evidence.submissions.length === 9 && evidence.submissions.every(s => s.nodeFinalized && Number.isInteger(s.txBytes));
   writeFileSync(resultPath, JSON.stringify(evidence, null, 2) + '\n');
   console.log(JSON.stringify(evidence, null, 2));
   process.exitCode = evidence.complete ? 0 : 1;

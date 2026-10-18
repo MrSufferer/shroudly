@@ -17,10 +17,11 @@ export function evidenceManifest() {
   const sources = Object.fromEntries(['CustodyProbe.compact','separated/SeparatedAsset.compact','separated/SeparatedPool.compact','separated/CrossContractPool.compact','separated/AuthenticatedAsset.compact'].map(name=>[name,hash(readFileSync(new URL(name,import.meta.url)))]));
   const versions = Object.fromEntries(['@midnight-ntwrk/compact-runtime','@midnight-ntwrk/midnight-js-contracts','@midnight-ntwrk/midnight-js-protocol','@midnight-ntwrk/wallet-sdk','@midnight-ntwrk/ledger-v8'].map(name=>{
     let path = new URL(import.meta.resolve(name)).pathname;
-    while (!path.endsWith('/package.json')) {
+    while (path.includes('/')) {
       path = path.slice(0,path.lastIndexOf('/'));
       try { const pkg = JSON.parse(readFileSync(`${path}/package.json`,'utf8')); if(pkg.name === name) return [name,pkg.version]; } catch {}
     }
+    return [name,null];
   }));
   const executionScripts = Object.fromEntries(['runtime-state.mjs','journey.mjs','protected-wallet.mjs','provider-proxy.mjs','wallet-cache.mjs','reconciliation.mjs','evidence-manifest.mjs','separated/probe-call.mjs'].map(name=>[name,hash(readFileSync(new URL(name,import.meta.url)))]));
   return {executionScripts,workingTreeDirty:execFileSync('git',['status','--porcelain'],{encoding:'utf8'}).trim().length > 0,sourceRevision:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),node:process.version,versions,sources,artifacts,lockfileSha256:hash(readFileSync(new URL('../../../pnpm-lock.yaml',import.meta.url)))};

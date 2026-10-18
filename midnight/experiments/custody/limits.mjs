@@ -1,5 +1,5 @@
 // Checks every deployed circuit against the Preprod limits from #22: circuit k (from the local
-// proof server's /k), verifier key bytes, and the finalized transaction bytes in the journey result.
+// proof server's /k), verifier key bytes, and the bytes of every transaction the journey submitted.
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 export const PREPROD_LIMITS = { transactionBytes: 786_432, k: 25, verifierKeyBytes: 50_000 };
 const PROOF_SERVER = 'http://127.0.0.1:6300';
@@ -15,10 +15,11 @@ export async function measureLimits(journey) {
       circuits[`${name}/${circuit}`] = { k, verifierKeyBytes };
     }
   }
-  const transactions = Object.fromEntries(journey.steps.filter(s => Number.isInteger(s.txBytes)).map(s => [s.name, s.txBytes]));
+  // Every submitted transaction, measured as serialized at submission.
+  const transactions = Object.fromEntries(journey.submissions.map(s => [s.transactionId, s.txBytes]));
   const proofServer = await fetch(`${PROOF_SERVER}/version`).then(r => r.text());
   const withinLimits = Object.values(circuits).every(c => Number.isInteger(c.k) && c.k <= PREPROD_LIMITS.k && c.verifierKeyBytes <= PREPROD_LIMITS.verifierKeyBytes)
-    && Object.values(transactions).every(bytes => bytes <= PREPROD_LIMITS.transactionBytes);
+    && journey.submissions.length > 0 && Object.values(transactions).every(bytes => Number.isInteger(bytes) && bytes <= PREPROD_LIMITS.transactionBytes);
   return { limits: PREPROD_LIMITS, proofServer, journeyStartedAt: journey.startedAt, circuits, transactions, withinLimits };
 }
 

@@ -5,7 +5,7 @@ if(process.argv[2]==='--worker'){
   let opened;
   try{
     const {openProtectedWallet}=await import('./protected-wallet.mjs');
-    let last=0;opened=await openProtectedWallet(process.argv[3],undefined,progress=>{if(Date.now()-last>20000){last=Date.now();process.send?.({progress});}});
+    let last=0;opened=await openProtectedWallet(process.argv[3],undefined,progress=>{if(Date.now()-last>20000){last=Date.now();process.send?.({progress});}},process.env.SHROUDLY_CUSTODY_WALLET_CACHE||'/tmp/shroudly-custody-wallet-cache');
     const night=Object.values(opened.state.unshielded.balances).some(value=>value>0n);
     const dust=opened.state.dust.balance(new Date())>0n;
     process.send?.({synchronized:true,nightFunded:night,dustFunded:dust});

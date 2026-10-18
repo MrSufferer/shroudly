@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { parseEnv } from 'node:util';
 import { spawnSync } from 'node:child_process';
 import * as sdk from '@midnight-ntwrk/wallet-sdk';
@@ -66,7 +67,8 @@ export async function openProtectedWallet(path, timeoutMs=900000, onProgress, ca
   let wallet;
   let stage='initialization';
   try {
-    const cache=readWalletCache(cacheDirectory);
+    const owner=createHash('sha256').update(shielded.coinPublicKey).digest('hex');
+    const cache=readWalletCache(cacheDirectory,owner);
     wallet = await withTimeout(sdk.WalletFacade.init({configuration,
     shielded:cfg=>cache?sdk.ShieldedWallet(cfg).restore(cache.shielded):sdk.ShieldedWallet(cfg).startWithSecretKeys(shielded),
     unshielded:cfg=>cache?sdk.UnshieldedWallet(cfg).restore(cache.unshielded):sdk.UnshieldedWallet(cfg).startWithPublicKey(sdk.PublicKey.fromKeyStore(keystore)),
@@ -76,11 +78,11 @@ export async function openProtectedWallet(path, timeoutMs=900000, onProgress, ca
     await withTimeout(wallet.start(shielded,dust),timeoutMs,'wallet startup');
     stage='synchronization';
     const watcher=onProgress?wallet.state().subscribe({next:state=>{try{onProgress(progressSnapshot(state));}catch{}},error:()=>{}}):undefined;
-    const saver=cacheDirectory?setInterval(()=>saveWalletCache(cacheDirectory,wallet).catch(()=>{}),60000):undefined;
+    const saver=cacheDirectory?setInterval(()=>saveWalletCache(cacheDirectory,wallet,owner).catch(()=>{}),60000):undefined;
     let state;
     try{state = await withTimeout(wallet.waitForSyncedState(),timeoutMs,'wallet synchronization');}finally{watcher?.unsubscribe();clearInterval(saver);}
-    if(cacheDirectory)await saveWalletCache(cacheDirectory,wallet).catch(()=>{});
-    return {wallet,shielded,dust,keystore,configuration,state,restoredFromCache:Boolean(cache),close:async()=>{try{await withTimeout(wallet.stop(),10000,'wallet cleanup');}finally{await proxy.close();}}};
+    if(cacheDirectory)await saveWalletCache(cacheDirectory,wallet,owner).catch(()=>{});
+    return {wallet,owner,shielded,dust,keystore,configuration,state,restoredFromCache:Boolean(cache),close:async()=>{try{await withTimeout(wallet.stop(),10000,'wallet cleanup');}finally{await proxy.close();}}};
   } catch(error) {
     if(wallet)await withTimeout(wallet.stop(),10000,'wallet cleanup').catch(()=>{});
     await proxy.close();
