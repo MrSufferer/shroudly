@@ -1,67 +1,129 @@
 {
+  "manifest": {
+    "executionScripts": {
+      "runtime-state.mjs": "da4492679405951dfca5f750ef7e7dbddebfd7ff855768102e6c54a53647ecdf",
+      "journey.mjs": "3e59fab07069364d0967e1ee6abd2ded5abf046fe406da77e5e6a30533066e25",
+      "protected-wallet.mjs": "1e109aa1f16f0b76a52f201490692d0148eafef6b062406636395d8b4f909b48",
+      "provider-proxy.mjs": "ef4b183186aa5caf13ba4865dfe75063a14e552938760f75767e3af2fc6617ba",
+      "wallet-cache.mjs": "a5f3de8b8b7de8048a5c17c3a6721d3294d2d26fd34a8cf48eb94b91a106981e",
+      "reconciliation.mjs": "51a78f2d441e23ebc6541613701e76d8fa8cbb726b2e99d729217b83b0d4259d",
+      "evidence-manifest.mjs": "f30802d5e95c08c5e4393a5bed4feaae78c2f6f26b45b5b273a625a64650c274",
+      "separated/probe-call.mjs": "e6547c35bff53cc48de08de4dfcb69d6e9f435ea93f7879b9eb38fb498189d33"
+    },
+    "workingTreeDirty": true,
+    "sourceRevision": "75993d4319b667306bb8c5beb67d46733b037b16",
+    "node": "v24.10.0",
+    "versions": {
+      "@midnight-ntwrk/compact-runtime": "0.16.0",
+      "@midnight-ntwrk/midnight-js-contracts": "4.1.1",
+      "@midnight-ntwrk/midnight-js-protocol": "4.1.1",
+      "@midnight-ntwrk/wallet-sdk": "1.2.0",
+      "@midnight-ntwrk/ledger-v8": "8.1.0"
+    },
+    "sources": {
+      "CustodyProbe.compact": "e037a5ae6fd5e8bbadf9dbab39a25ca842f309bd0d4464db21b035eecf1cc01c",
+      "separated/SeparatedAsset.compact": "c09e6c03c0dcc7aa9e7b8621e51014d708b4ce29b0db57eea7dabc77176376be",
+      "separated/SeparatedPool.compact": "dd725f348c00fd35e9af7fe199b0f45161760c8b4adf9accffddf9f445062187",
+      "separated/CrossContractPool.compact": "912114e59bc5b72aa822323e2eb9449940c9aa036617bc4b29d4d886541e4dde",
+      "separated/AuthenticatedAsset.compact": "8f2074fe6397f89d0fdf5be34bf48f379c0b8f8f919c95c9d254db51be8f4eff"
+    },
+    "artifacts": {
+      "custody-probe/contract/index.js": "7d35ec37fc5c3a6ba85f13127208708024171fcfb0846cec4a1e1a32dd30704c",
+      "custody-probe/keys/allocateYield.prover": "d36b37488410b0fdfc2c781ad008d18e1ed4ddbc184d37edfe3d8c11058779e8",
+      "custody-probe/keys/allocateYield.verifier": "1c41db1828dbdc26a5ec692d708244cc09678b40078cb090565f65e1d7f1343f",
+      "custody-probe/keys/seed.prover": "53a22826d0346c3d1d0a13d79eba311714459f625a31e5cfa1b4c269dcd0156e",
+      "custody-probe/keys/seed.verifier": "6b6d98de370386220ea675eaa50627d7e21c3a72d5639471bf438a08944e0b8f",
+      "custody-probe/keys/withdraw.prover": "baa1d6aa9e1522b70200a9db8a5dc9a72be17dd6173b1184b84d908eaf183393",
+      "custody-probe/keys/withdraw.verifier": "cf9106c819588ebb0f6e012307a638768f939dd87fcd0a80c129f7e8d35ab49c",
+      "custody-probe/zkir/allocateYield.bzkir": "d7233cc667fe43e91a905befc52fbf2979825f9738e40202e1f3456178f13cd3",
+      "custody-probe/zkir/allocateYield.zkir": "71331b92620f8075de7484d341f9e287e9cb5245a1303c47a0ec06f3eb681603",
+      "custody-probe/zkir/seed.bzkir": "132342fe0cc9017c8232cf18af0d2228ba4a1ebb5ee973a3966d0903bc520347",
+      "custody-probe/zkir/seed.zkir": "ceb1368175ebae30bbd39d5a1bdac9c680762dd8c235596848f5a132318b17bb",
+      "custody-probe/zkir/withdraw.bzkir": "1e58b500bcaf1b734f060ec7657d9de80a100b8651b609207c937964f11907f1",
+      "custody-probe/zkir/withdraw.zkir": "840c407ca388e9ce1e3ae60a79d7874365dd81a04ccf0e20469a07ea9060b825",
+      "separated-asset/contract/index.js": "3a12af8637217169f596e937aa9eea6e6215810ff5145c6b21b0dbd4fd8bc3eb",
+      "separated-asset/keys/seed.prover": "8c9bc261aba9eb02879ae4a210eb83af4cd4e57fa776196a3526d8b2de09f74f",
+      "separated-asset/keys/seed.verifier": "aff2ce86f37d0333cfea4b88826052d98de9e0b2b5b72e35c3c3c9811ce94b05",
+      "separated-asset/zkir/seed.bzkir": "736021c2e45771a4d2a5bbc9177c5fdf081f8290735826c9399de81852e56344",
+      "separated-asset/zkir/seed.zkir": "0c4004ad5e51e0d8fb9d0da0aa47e914a897db43472bb412d129f8fbfb4f6e42",
+      "separated-pool/contract/index.js": "908c45b040ae97c89fca877a2349d8ed9d636c047c95a02e8264391779375d71",
+      "separated-pool/keys/allocateYield.prover": "920191b6951feee3eb66f612d510cf0facafaf7e841a262c448053074f7a00b6",
+      "separated-pool/keys/allocateYield.verifier": "082560f8d673a30691c79e9306bf670ddd823a4921d2d710d2a9a5d52bda69dc",
+      "separated-pool/keys/recordSeed.prover": "493c9379572c18d6b205ec04de8f9a749039460e1466c4654d0857291c34e756",
+      "separated-pool/keys/recordSeed.verifier": "ae054c7c53cb392e4193ce740af23236b3e3327e434494402612b44ff0707cdf",
+      "separated-pool/zkir/allocateYield.bzkir": "aff8dd50d1009eb5346d1867ac27a9ede68aaa65643925aed4c736afee1c4277",
+      "separated-pool/zkir/allocateYield.zkir": "823b62501d406a02d88ad435f27542976a8a3e480c5933052a6346739c4ed24a",
+      "separated-pool/zkir/recordSeed.bzkir": "bfc6d6665676b63c453b945b8abe32615474cbab84664e51595aeb74ae639cd5",
+      "separated-pool/zkir/recordSeed.zkir": "06d53fe23976c1f3baa6e1d4c0cd5d6723aaf47343ee73fb00f360bb3fe7789b"
+    },
+    "lockfileSha256": "7993339b564a4c2aec707bf266c8273d75e50a8ab8c52ff330d278531f94ade9"
+  },
   "format": "shroudly-custody-network-journey-v1",
-  "startedAt": "2026-10-17T14:50:59.098Z",
+  "startedAt": "2026-10-17T15:06:55.640Z",
   "steps": [
     {
       "name": "wallet-sync-from-cache",
-      "elapsedMs": 76590,
+      "elapsedMs": 86602,
       "status": "Synchronized"
     },
     {
       "name": "deploy",
-      "txHash": "75e05f6de5c7d2621aef085e8cd21d2a07ac2fed4062c325a3e36c75689d36c3",
-      "blockHash": "0ad161660c59562fd323663a48f6dcd87ad143170e1ba229709b628f6b8b212f",
-      "blockHeight": 3021818,
-      "elapsedMs": 24002,
+      "txHash": "29ae290023a5939c1d43b9a94439a92dc1262b8523bb06e10398b0f863a70350",
+      "blockHash": "3f9af7eeb6a14f6eda1217c91b5a258c37d05547ffeb5af06c5c195d3655aa12",
+      "blockHeight": 3021979,
+      "elapsedMs": 24083,
       "status": "SucceedEntirely",
       "txBytes": 11056,
       "dustSpentApprox": "0"
     },
     {
       "name": "seed",
-      "txHash": "b33a78178577c1320a52f4d7fe62238993044f94d14cc12d89b3f21084518e55",
-      "blockHash": "6befa04d68fee4820ecd21685e8f54fb7e3b5994ec1a23074ca27afb621b3cac",
-      "blockHeight": 3021823,
-      "elapsedMs": 29274,
+      "txHash": "9ec1fb9239b13066d30993100851752f3feab260fe5bdbbac6283a14f0f03b36",
+      "blockHash": "38632de5b800da1185a580d7c2310aa68fb189faa0fe3d2ea60babfc2adc6715",
+      "blockHeight": 3021984,
+      "elapsedMs": 28351,
       "status": "SucceedEntirely",
-      "txBytes": 13991,
+      "txBytes": 13989,
       "contractOutputs": 1,
-      "dustSpentApprox": "0"
-    },
-    {
-      "name": "separated-asset-deploy",
-      "txHash": "b9ec369892e507f8f1ab4d677704ff2996dcc7ef78225cf90fdc8af6662174c4",
-      "blockHash": "a4cb74a878289d121df22d8058a5e8ca795b71eb12af015cb2f06462d294d360",
-      "blockHeight": 3021827,
-      "elapsedMs": 23921,
-      "status": "SucceedEntirely",
-      "dustSpentApprox": "0"
-    },
-    {
-      "name": "separated-asset-seed",
-      "txHash": "a766dd29c6b724116431db28f420914604fb8c56a7b458e96e4a765c8fb4f8f2",
-      "blockHash": "f0400b23610fc82af87960e09c7eaa2a5a9ccea6bf960d7e5a36e8ae24005688",
-      "blockHeight": 3021832,
-      "elapsedMs": 29653,
-      "status": "SucceedEntirely",
-      "dustSpentApprox": "0"
-    },
-    {
-      "name": "separated-pool-deploy",
-      "txHash": "5faf3077ea13d5dda5169690ebf293bbabfbb9bcb6db6adb65d665c9fdcb345c",
-      "blockHash": "90e8275a292a78bfbfb6171cd1460072d015de1b2e79b3d1e6a029e0fba7f359",
-      "blockHeight": 3021836,
-      "elapsedMs": 24183,
-      "status": "SucceedEntirely",
       "dustSpentApprox": "0"
     }
   ],
-  "rejections": [],
+  "submissions": [],
+  "rejections": [
+    {
+      "name": "forged-draw-mismatch",
+      "rejected": true,
+      "reasonMatched": true
+    },
+    {
+      "name": "contributor-binding-mismatch",
+      "rejected": true,
+      "reasonMatched": true
+    },
+    {
+      "name": "duplicate-contributor",
+      "rejected": true,
+      "reasonMatched": true
+    },
+    {
+      "name": "unauthorized-asset-release",
+      "rejected": true,
+      "reasonMatched": true
+    },
+    {
+      "name": "principal-liability-exceeded",
+      "rejected": true,
+      "reasonMatched": true
+    }
+  ],
   "failures": [
     {
-      "step": "seed-state",
-      "errorName": "Error",
-      "message": "expected instance of ChargedState"
+      "step": "allocate",
+      "category": "operation-failed"
+    },
+    {
+      "step": "separated-asset-deploy",
+      "category": "operation-failed"
     }
   ],
   "releaseQualified": false,
@@ -69,10 +131,11 @@
     "nightBalance": "5000000000",
     "dustBalance": "25000000000000000000"
   },
-  "contractAddress": "fe48669a82ebfcfd46a727b12c50f5c9ecdf89e28d132c4fd1a4a6b35578badb",
-  "separatedAssetAddress": "6c649e4b8b5f2f4f8b4449e5cef8f8f570ead2cac23e9f16b542d019f691262c",
-  "separatedPoolAddress": "b7fcb49cd5c0c5bfa8209277eb91e7d7aa8f588186cb11dfe0074fbe8d5541f7",
-  "finishedAt": "2026-10-17T15:00:40.886Z",
-  "elapsedMs": 581788,
+  "contractAddress": "6a0e90373d4d1881ee5816684cb32d66af122265ccc58b7e63c678ea7a9562dd",
+  "custodyCommitments": {
+    "seed": true
+  },
+  "finishedAt": "2026-10-17T15:29:35.258Z",
+  "elapsedMs": 1359678,
   "complete": false
 }

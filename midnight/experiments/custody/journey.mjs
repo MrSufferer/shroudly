@@ -20,6 +20,9 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // Fixed categories only: dependency messages may include provider credentials.
 const failureCategory = error => {
   const message = String(error?.message ?? '');
+  if (message === 'protected credential read failed') return 'credential-unavailable';
+  if (message === 'endpoint outside approved Preprod route') return 'endpoint-invalid';
+  if (message === 'protected wallet did not synchronize') return ['initialization','startup','synchronization'].includes(error.stage) ? `wallet-${error.stage}-failed` : 'wallet-initialization-failed';
   if (error?.code === 'OUTCOME_UNKNOWN') return 'outcome-unknown';
   if (message.includes('expected instance of StateValue')) return 'runtime-statevalue-mismatch';
   if (message.includes('expected exactly one contract output')) return 'unexpected-contract-output-count';
@@ -103,9 +106,11 @@ async function worker(envPath) {
     const watchForTxData = publicDataProvider.watchForTxData.bind(publicDataProvider);
     publicDataProvider.watchForTxData = (...args) => bounded(watchForTxData(...args), 180000);
     // Reconcile the interrupted previous run before new submissions.
+    if (process.env.SHROUDLY_CUSTODY_RECONCILE_PREVIOUS === '1') {
     const previousPoolModule = await import('../../managed/separated-pool/contract/index.js');
     const previousPool = readContractLedger(previousPoolModule.ledger, (await contracts.getPublicStates(publicDataProvider, 'b7fcb49cd5c0c5bfa8209277eb91e7d7aa8f588186cb11dfe0074fbe8d5541f7')).contractState);
     send({ previousRunReconciliation: { poolReportedCustody: previousPool.reportedCustody.toString(), poolPrizeLiability: previousPool.prizeLiability.toString() } });
+    }
     privateDirectory = mkdtempSync(join(tmpdir(), 'custody-private-'));
     const password = `Aa1!${randomBytes(18).toString('hex')}`;
     const privateStateProvider = privateModule.levelPrivateStateProvider({
@@ -336,7 +341,7 @@ child.on('message', (m) => {
   }
   if (m?.custodyCommitment && ['seed','withdraw'].includes(m.custodyCommitment.stage)) { evidence.custodyCommitments ??= {}; evidence.custodyCommitments[m.custodyCommitment.stage] = m.custodyCommitment.matched === true; }
   if (m?.walletRelease) evidence.walletRelease = { shieldedColorBalances: Object.fromEntries(Object.entries(m.walletRelease.shieldedColorBalances ?? {}).filter(([k, v]) => /^[0-9a-f]{64}$/.test(k) && /^\d{1,30}$/.test(v))) };
-  if (m?.failure) { console.error(JSON.stringify({failureStep: str(m.failure.step, /^[a-z-]{1,40}$/), category: ['outcome-unknown','runtime-statevalue-mismatch','unexpected-contract-output-count','qualified-coin-unavailable','indexer-query-failed','operation-failed'].includes(m.failure.category) ? m.failure.category : 'operation-failed'})); evidence.failures.push({ step: str(m.failure.step, /^[a-z-]{1,40}$/), category: ['outcome-unknown','runtime-statevalue-mismatch','unexpected-contract-output-count','qualified-coin-unavailable','indexer-query-failed','operation-failed'].includes(m.failure.category) ? m.failure.category : 'operation-failed' }); }
+  if (m?.failure) { console.error(JSON.stringify({failureStep: str(m.failure.step, /^[a-z-]{1,40}$/), category: ['credential-unavailable','endpoint-invalid','wallet-initialization-failed','wallet-startup-failed','wallet-synchronization-failed','outcome-unknown','runtime-statevalue-mismatch','unexpected-contract-output-count','qualified-coin-unavailable','indexer-query-failed','operation-failed'].includes(m.failure.category) ? m.failure.category : 'operation-failed'})); evidence.failures.push({ step: str(m.failure.step, /^[a-z-]{1,40}$/), category: ['credential-unavailable','endpoint-invalid','wallet-initialization-failed','wallet-startup-failed','wallet-synchronization-failed','outcome-unknown','runtime-statevalue-mismatch','unexpected-contract-output-count','qualified-coin-unavailable','indexer-query-failed','operation-failed'].includes(m.failure.category) ? m.failure.category : 'operation-failed' }); }
   writeFileSync(resultPath, JSON.stringify(evidence, null, 2) + '\n');
 });
 child.on('exit', () => {
