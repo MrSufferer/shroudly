@@ -10,6 +10,6 @@ Until the maintainer accepts one of the changes listed there (public retirement,
 ## Maintainer decision (2026-10-17)
 
 - The "no viable construction under current constraints" finding is accepted; #49 closes and no longer blocks #25.
-- Public retirement (design record section 5, option 1) is accepted as the relaxation to measure: the leaf index or nullifier is visible at withdrawal, which links note lineage. #22 is re-scoped to measure 6B with public retirement using a real proof on proof server 8.1.0 and compiler 0.31.1.
+- Public retirement (design record section 5, option 1) is accepted as the relaxation to measure: the leaf index or nullifier is visible at withdrawal, which links note lineage. #22 is re-scoped to measure 6B with public retirement using a real proof on proof server 8.1.3 and compiler 0.31.1 (amended 2026-10-18 from 8.1.0 when the version profile was realigned; 8.1.0 evidence is not accepted).
 - #25 proceeds with operator-computed selection, and the privacy loss is stated in the authority model. This is an interim path until #22 qualifies or rejects 6B with public retirement.
 - Whether a probabilistic rejection becomes a third Prize Rollover cause stays undecided and is not adopted.
