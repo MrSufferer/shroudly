@@ -68,7 +68,7 @@ if (process.argv[2] === '--worker') {
         } catch (error) {
           record.outcome = record.txId ? 'finality-unobserved' : 'rejected-before-block';
           record.errorClass = errorClass(error); record.errorDetail = errorDetail(error);
-        } finally { control.forgedSeconds = undefined; control.gate = undefined; }
+        } finally { record.wallet = control.walletView ?? null; control.walletView = undefined; control.forgedSeconds = undefined; control.gate = undefined; }
       }, () => emit({stage: 'waiting-for-wallet-lock', for: id}));
       evidence.steps.push(record);
       save();
@@ -109,7 +109,7 @@ if (process.argv[2] === '--worker') {
     await step({id: 'D.commit.slot1.boundary', circuit: 'commit', args: [D, 1n], slot: 1, at: S + 720 - 60, expect: 'accept', note: 'honest commit 60 s before the three-minute commit cutoff'});
     await step({id: 'D.commit.slot3.late', circuit: 'commit', args: [D, 3n], slot: 3, at: S + 720 + 4, forge: S + 300, expect: 'reject', note: 'forged clock inside window, real network time past cutoff'});
     await step({id: 'D.commit.slot3.late2', circuit: 'commit', args: [D, 3n], slot: 3, at: S + 720 + 70, forge: S + 300, expect: 'reject', note: 'second late commitment'});
-    await step({id: 'D.reveal.slot0.early', circuit: 'reveal', args: [D, 0n], slot: 0, at: E - 8, forge: E + 50, expect: 'reject', note: 'reveal before weighting closes'});
+    await step({id: 'D.reveal.slot0.early', circuit: 'reveal', args: [D, 0n], slot: 0, at: E - 40, forge: E + 50, expect: 'reject', note: 'reveal before weighting closes; run 2 at E-8 was included at E+12, so this keeps 40 s'});
     await step({id: 'D.reveal.slot0', circuit: 'reveal', args: [D, 0n], slot: 0, at: E + 45, expect: 'accept', note: 'honest reveal'});
     await step({id: 'D.reveal.slot1', circuit: 'reveal', args: [D, 1n], slot: 1, at: E + 90, expect: 'accept', note: 'honest reveal'});
     const earlyForge = E + 330;

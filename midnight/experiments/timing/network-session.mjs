@@ -13,6 +13,16 @@ import {forgingContract} from './forging.mjs';
 const MANAGED = new URL('../../managed/timing-probe/', import.meta.url);
 const LOCK = '/tmp/shroudly-wallet.lock';
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+// Counts and indexer positions only; no keys or coin contents.
+const currentState = wallet => new Promise(resolve => { const sub = wallet.state().subscribe(value => { queueMicrotask(() => sub.unsubscribe()); resolve(value); }); });
+const dustView = state => {
+  const dust = state?.dust, progress = dust?.state?.progress ?? dust?.progress;
+  const number = key => progress?.[key] === undefined ? null : Number(progress[key]);
+  let balance = null; try { balance = String(dust.balance(new Date())); } catch {}
+  return {dustAvailableCoins: dust?.availableCoins?.length ?? null, dustPendingCoins: dust?.pendingCoins?.length ?? null, dustBalance: balance,
+    dustAppliedIndex: number('appliedIndex'), dustHighestIndex: number('highestIndex'), walletSynced: state?.isSynced ?? null};
+};
+
 export const sha256 = value => createHash('sha256').update(value).digest('hex');
 
 // Exclusive wallet lock shared with the concurrently running custody experiment:
@@ -89,6 +99,11 @@ export async function openSession(envPath) {
   const walletProvider = {
     getCoinPublicKey: () => coinPublicKey, getEncryptionPublicKey: () => encryptionPublicKey,
     balanceTx: async (tx, ttl = new Date(Date.now() + 3_600_000)) => {
+      // With a single DUST coin each step spends the previous step's change, which the wallet only
+      // sees once it has synced that block. Wait for it, bounded, and record what the wallet saw.
+      const began = Date.now();
+      const synced = await Promise.race([wallet.waitForSyncedState().then(() => true), new Promise(resolve => setTimeout(resolve, 120000, false))]);
+      control.walletView = {syncedBeforeBalancing: synced, syncWaitMs: Date.now() - began, ...dustView(await currentState(wallet))};
       const recipe = await wallet.balanceUnboundTransaction(tx, {shieldedSecretKeys: shielded, dustSecretKey: dust}, {ttl});
       return wallet.finalizeRecipe(recipe);
     },
