@@ -63,7 +63,7 @@ does not change provider policy or the reviewed candidate version pins.
 The exact candidate remains [midnight/version-profile.json](../../midnight/version-profile.json):
 Compact CLI **0.5.2**, language **0.23.0**, compiler **0.31.1**, runtime
 **0.16.0**, Midnight.js **4.1.1**, Wallet SDK **1.2.0**, DApp Connector
-**4.0.1**, node **1.0.2**, indexer **4.3.3-hotfix**, proof server **8.1.0**.
+**4.0.1**, node **1.0.400**, indexer **4.3.302** (unverified), proof server **8.1.3**.
 The ledger library is `@midnight-ntwrk/ledger-v8` **8.1.0**, derived from its
 exact root `package.json` dependency pin in the CLI report.
 These are candidate pins; qualification remains outstanding. Do not upgrade
@@ -120,7 +120,7 @@ Contract identifiers and artifact hashes are populated after genuine deployment.
    with an authorized genuine wallet adapter privately. Record only a sanitized
    validation outcome and timestamp. The CLI intentionally reports funding
    **unverified**; metadata or a faucet request never proves balance.
-2. Start the participant-operated proof server pinned to **8.1.0**, binding its
+2. Start the participant-operated proof server pinned to **8.1.3**, binding its
    port to `127.0.0.1` (or IPv6 loopback), then set the local URL. The
    [official proof-service example](https://docs.midnight.network/tutorials/bship/test-suite)
    uses `/version` for readiness; its example image tag is not permission to
