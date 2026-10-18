@@ -3,23 +3,23 @@
   "network": "preprod",
   "participantApp": "node (not Lace)",
   "walletService": "protected wallet in this parent process",
-  "startedAt": "2026-10-17T13:58:05.124Z",
+  "startedAt": "2026-10-18T14:17:38.840Z",
   "steps": [
     {
       "name": "wallet-synchronized",
-      "atMs": 126879,
+      "atMs": 147306,
       "fromCache": true,
       "dustFunded": true
     },
     {
       "name": "deployed",
-      "atMs": 152242,
-      "contract": "9fc51d3510a0244120d98896716314789c361c37368d89523da7c4c23191285c",
-      "txId": "0061ca7e3bce610a3482e7411f837ea4961447719de63f116f479d8497ae83081d"
+      "atMs": 323558,
+      "contract": "5b313670ae664d2a8960cefe13512c374c7fbfb435dcc3ce124478a97ace99fa",
+      "txId": "008a07a0ac8a1b1f8788aa4331b7469299afae10e0ceee520440aaefb847eed2bf"
     },
     {
       "name": "init-alice",
-      "atMs": 152948,
+      "atMs": 324773,
       "exit": 0,
       "outcome": {
         "cmd": "init",
@@ -39,205 +39,290 @@
     },
     {
       "name": "register",
-      "atMs": 153814,
-      "exit": 1,
-      "failed": "type error: secretKey return value at RecoveryProbe.compact line 16 char 1; expected value of type Bytes<32> but receive"
+      "atMs": 505884,
+      "exit": 0,
+      "outcome": {
+        "cmd": "act",
+        "name": "alice",
+        "outcome": "completed",
+        "journal": {
+          "generation": "1",
+          "privateRound": "0",
+          "unresolved": []
+        },
+        "ledger": {
+          "round": "0",
+          "registered": true
+        },
+        "fresh": true
+      }
     },
     {
       "name": "export-kit-after-register",
-      "atMs": 154387,
+      "atMs": 506817,
       "exit": 0,
       "outcome": {
         "cmd": "export-kit",
         "name": "alice",
         "journal": {
-          "generation": "0",
+          "generation": "1",
           "privateRound": "0",
           "unresolved": []
         },
         "ledger": {
-          "round": "-1",
-          "registered": false
+          "round": "0",
+          "registered": true
         },
         "fresh": true
       }
     },
     {
       "name": "crash-before-submission",
-      "atMs": 155370,
-      "exit": 1,
-      "failed": "type error: secretKey return value at RecoveryProbe.compact line 16 char 1; expected value of type Bytes<32> but receive"
+      "atMs": 508322,
+      "exit": "SIGKILL"
     },
     {
       "name": "restart-reconcile-original",
-      "atMs": 155941,
+      "atMs": 2072921,
       "exit": 0,
       "outcome": {
         "cmd": "reconcile",
         "name": "alice",
-        "results": [],
+        "results": [
+          {
+            "actionId": "advance-1",
+            "outcome": "not-submitted",
+            "reason": "executor confirmed nothing was submitted"
+          }
+        ],
         "journal": {
-          "generation": "0",
+          "generation": "1",
           "privateRound": "0",
-          "unresolved": []
+          "unresolved": [
+            {
+              "actionId": "advance-1",
+              "status": "prepared",
+              "circuit": "advance"
+            }
+          ]
         },
         "ledger": {
-          "round": "-1",
-          "registered": false
+          "round": "0",
+          "registered": true
         },
         "fresh": true
       }
     },
     {
       "name": "crash-during-observation",
-      "atMs": 156799,
+      "atMs": 2074234,
       "exit": 1,
-      "failed": "type error: secretKey return value at RecoveryProbe.compact line 16 char 1; expected value of type Bytes<32> but receive"
+      "failed": "an unresolved action blocks new actions"
     },
     {
       "name": "restart-reconcile-observed",
-      "atMs": 157370,
+      "atMs": 2393237,
       "exit": 0,
       "outcome": {
         "cmd": "reconcile",
         "name": "alice",
-        "results": [],
+        "results": [
+          {
+            "actionId": "advance-1",
+            "outcome": "not-submitted",
+            "reason": "executor confirmed nothing was submitted"
+          }
+        ],
         "journal": {
-          "generation": "0",
+          "generation": "1",
           "privateRound": "0",
-          "unresolved": []
+          "unresolved": [
+            {
+              "actionId": "advance-1",
+              "status": "prepared",
+              "circuit": "advance"
+            }
+          ]
         },
         "ledger": {
-          "round": "-1",
-          "registered": false
+          "round": "0",
+          "registered": true
         },
         "fresh": true
       }
     },
     {
       "name": "crash-after-finality",
-      "atMs": 158307,
+      "atMs": 2394488,
       "exit": 1,
-      "failed": "type error: secretKey return value at RecoveryProbe.compact line 16 char 1; expected value of type Bytes<32> but receive"
+      "failed": "an unresolved action blocks new actions"
     },
     {
       "name": "restart-reconcile-persist",
-      "atMs": 158879,
+      "atMs": 2705262,
       "exit": 0,
       "outcome": {
         "cmd": "reconcile",
         "name": "alice",
-        "results": [],
+        "results": [
+          {
+            "actionId": "advance-1",
+            "outcome": "not-submitted",
+            "reason": "executor confirmed nothing was submitted"
+          }
+        ],
         "journal": {
-          "generation": "0",
+          "generation": "1",
           "privateRound": "0",
-          "unresolved": []
+          "unresolved": [
+            {
+              "actionId": "advance-1",
+              "status": "prepared",
+              "circuit": "advance"
+            }
+          ]
         },
         "ledger": {
-          "round": "-1",
-          "registered": false
+          "round": "0",
+          "registered": true
         },
         "fresh": true
       }
     },
     {
       "name": "crash-during-handoff",
-      "atMs": 159750,
+      "atMs": 2706848,
       "exit": 1,
-      "failed": "type error: secretKey return value at RecoveryProbe.compact line 16 char 1; expected value of type Bytes<32> but receive"
+      "failed": "an unresolved action blocks new actions"
     },
     {
       "name": "restart-reconcile-handoff",
-      "atMs": 160333,
+      "atMs": 3100402,
       "exit": 0,
       "outcome": {
         "cmd": "reconcile",
         "name": "alice",
-        "results": [],
+        "results": [
+          {
+            "actionId": "advance-1",
+            "outcome": "not-submitted",
+            "reason": "executor confirmed nothing was submitted"
+          }
+        ],
         "journal": {
-          "generation": "0",
+          "generation": "1",
           "privateRound": "0",
-          "unresolved": []
+          "unresolved": [
+            {
+              "actionId": "advance-1",
+              "status": "prepared",
+              "circuit": "advance"
+            }
+          ]
         },
-        "ledger": {
-          "round": "-1",
-          "registered": false
-        },
-        "fresh": true
+        "ledger": null,
+        "fresh": null
       }
     },
     {
       "name": "export-kit-current",
-      "atMs": 160960,
+      "atMs": 3110925,
       "exit": 0,
       "outcome": {
         "cmd": "export-kit",
         "name": "alice",
         "journal": {
-          "generation": "0",
+          "generation": "1",
           "privateRound": "0",
-          "unresolved": []
+          "unresolved": [
+            {
+              "actionId": "advance-1",
+              "status": "prepared",
+              "circuit": "advance"
+            }
+          ]
         },
-        "ledger": {
-          "round": "-1",
-          "registered": false
-        },
-        "fresh": true
+        "ledger": null,
+        "fresh": null
       }
     },
     {
       "name": "restore-current-kit-fresh-profile",
-      "atMs": 161559,
+      "atMs": 3624362,
       "exit": 0,
       "outcome": {
         "cmd": "restore-kit",
         "name": "alice-restored",
         "journal": {
-          "generation": "0",
+          "generation": "1",
           "privateRound": "0",
-          "unresolved": []
+          "unresolved": [
+            {
+              "actionId": "advance-1",
+              "status": "prepared",
+              "circuit": "advance"
+            }
+          ]
         },
-        "ledger": {
-          "round": "-1",
-          "registered": false
-        },
-        "fresh": true
+        "ledger": null,
+        "fresh": null
       }
     },
     {
       "name": "advance-from-restored-kit",
-      "atMs": 162493,
+      "atMs": 3631572,
       "exit": 1,
-      "failed": "type error: secretKey return value at RecoveryProbe.compact line 16 char 1; expected value of type Bytes<32> but receive"
+      "failed": "an unresolved action blocks new actions"
     },
     {
       "name": "restore-older-kit-is-stale",
-      "atMs": 163086,
+      "atMs": 3745421,
       "exit": 0,
       "outcome": {
         "cmd": "restore-kit",
         "name": "alice-stale",
         "journal": {
-          "generation": "0",
+          "generation": "1",
           "privateRound": "0",
           "unresolved": []
         },
         "ledger": {
-          "round": "-1",
-          "registered": false
+          "round": "0",
+          "registered": true
         },
         "fresh": true
       }
     },
     {
       "name": "stale-kit-cannot-act",
-      "atMs": 164147,
-      "exit": 1,
-      "failed": "type error: secretKey return value at RecoveryProbe.compact line 16 char 1; expected value of type Bytes<32> but receive"
+      "atMs": 4032949,
+      "exit": 0,
+      "outcome": {
+        "cmd": "act",
+        "name": "alice-stale",
+        "outcome": "not-submitted",
+        "reason": "executor confirmed nothing was submitted",
+        "journal": {
+          "generation": "1",
+          "privateRound": "0",
+          "unresolved": [
+            {
+              "actionId": "stale-1",
+              "status": "prepared",
+              "circuit": "advance"
+            }
+          ]
+        },
+        "ledger": {
+          "round": "0",
+          "registered": true
+        },
+        "fresh": true
+      }
     },
     {
       "name": "init-bob-same-deployment",
-      "atMs": 164728,
+      "atMs": 4033688,
       "exit": 0,
       "outcome": {
         "cmd": "init",
@@ -257,7 +342,7 @@
     },
     {
       "name": "bob-unregistered-while-alice-registered",
-      "atMs": 165303,
+      "atMs": 4034257,
       "exit": 0,
       "outcome": {
         "cmd": "reconcile",
@@ -276,9 +361,64 @@
       }
     }
   ],
-  "submissions": [],
-  "deployment": "9fc51d3510a0244120d98896716314789c361c37368d89523da7c4c23191285c",
-  "deploymentTx": "0061ca7e3bce610a3482e7411f837ea4961447719de63f116f479d8497ae83081d",
-  "result": "completed",
-  "finishedAt": "2026-10-17T14:00:50.428Z"
+  "submissions": [
+    {
+      "circuit": "register",
+      "at": 326844,
+      "txId": "00aa98e069e786c68aab78f8ff1edafd75216494170cc50958adb064ee45c6261b",
+      "outcome": "handed-off",
+      "finalStatus": "SUCCESS"
+    },
+    {
+      "circuit": "advance",
+      "at": 509215,
+      "outcome": "not-submitted",
+      "detail": "FiberFailureImpl: unreachable <- OtherWalletError: unreachable <- RuntimeError: unreachable"
+    },
+    {
+      "circuit": "advance",
+      "at": 2075136,
+      "outcome": "not-submitted",
+      "detail": "FiberFailureImpl: unreachable <- OtherWalletError: unreachable <- RuntimeError: unreachable"
+    },
+    {
+      "circuit": "advance",
+      "at": 2395173,
+      "outcome": "not-submitted",
+      "detail": "FiberFailureImpl: unreachable <- OtherWalletError: unreachable <- RuntimeError: unreachable"
+    },
+    {
+      "circuit": "advance",
+      "at": 2707556,
+      "outcome": "not-submitted",
+      "detail": "FiberFailureImpl: unreachable <- OtherWalletError: unreachable <- RuntimeError: unreachable"
+    },
+    {
+      "circuit": "advance",
+      "at": 3747598,
+      "outcome": "not-submitted",
+      "detail": "FiberFailureImpl: unreachable <- OtherWalletError: unreachable <- RuntimeError: unreachable"
+    }
+  ],
+  "deployment": "5b313670ae664d2a8960cefe13512c374c7fbfb435dcc3ce124478a97ace99fa",
+  "deploymentTx": "008a07a0ac8a1b1f8788aa4331b7469299afae10e0ceee520440aaefb847eed2bf",
+  "assessment": {
+    "passed": false,
+    "failures": [
+      "restart-reconcile-original",
+      "crash-during-observation",
+      "restart-reconcile-observed",
+      "crash-after-finality",
+      "restart-reconcile-persist",
+      "crash-during-handoff",
+      "restart-reconcile-handoff",
+      "restore-current-kit-fresh-profile",
+      "advance-from-restored-kit",
+      "restore-older-kit-is-stale",
+      "stale-kit-cannot-act",
+      "submissions"
+    ]
+  },
+  "result": "failed-checks",
+  "finishedAt": "2026-10-18T15:24:53.099Z"
 }
