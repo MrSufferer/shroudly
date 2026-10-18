@@ -23,6 +23,7 @@ import {
 } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { inspect } from "node:util";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SOURCE_NAMES = ["TmixAsset", "RandomnessThreshold", "YieldAdapter", "PrizePool"];
@@ -62,6 +63,27 @@ const PUBLIC_ENV = {
   poolHash: "VITE_SHROUDLY_POOL_ARTIFACT_HASH",
 };
 const REDACTIONS = new Set();
+let consoleRedacted = false;
+
+export function redactSecrets(text) {
+  let result = String(text);
+  for (const secret of REDACTIONS) result = result.split(secret).join("[redacted]");
+  return result;
+}
+
+// Libraries such as the polkadot WsProvider log failing URLs, which carry the
+// provider token as a query parameter. Once a token exists, every console
+// line passes through the same redaction as the fatal-error path.
+function redactConsole() {
+  if (consoleRedacted) return;
+  consoleRedacted = true;
+  for (const level of ["log", "info", "warn", "error", "debug"]) {
+    const write = console[level].bind(console);
+    console[level] = (...args) => write(...args.map((arg) => redactSecrets(
+      typeof arg === "string" ? arg : arg instanceof Error ? arg.stack ?? arg.message : inspect(arg),
+    )));
+  }
+}
 const AUTHORITY_NAMES = {
   assetLocal: "shroudly-preprod-authority-asset-local",
   assetReserve: "shroudly-preprod-authority-asset-reserve",
@@ -614,6 +636,7 @@ export function withProviderToken(url, env = process.env, { reader = keychainCom
   const token = result.status === 0 ? result.stdout.trim() : "";
   if (!/^[A-Za-z0-9._-]{1,512}$/.test(token)) throw new Error("operator Blockfrost Keychain entry is missing or malformed");
   REDACTIONS.add(token);
+  redactConsole();
   parsed.searchParams.set("project_id", token);
   return parsed.toString();
 }
@@ -907,6 +930,16 @@ async function buildCompiledContracts({
   return result;
 }
 
+/**
+ * An explicit HTTP override wins over the profile's WebSocket URL, so a
+ * local or alternate indexer never pairs with the Blockfrost stream.
+ */
+function indexerWsUrlFor(env, profileNetwork, httpUrl) {
+  if (env.MIDNIGHT_INDEXER_WS_URL) return env.MIDNIGHT_INDEXER_WS_URL;
+  if (env.MIDNIGHT_INDEXER_HTTP_URL) return deriveIndexerWs(env.MIDNIGHT_INDEXER_HTTP_URL);
+  return profileNetwork.indexerWs || deriveIndexerWs(httpUrl);
+}
+
 function deriveIndexerWs(httpUrl) {
   if (!httpUrl) return undefined;
   return httpUrl
@@ -1063,7 +1096,7 @@ export async function createProtectedAssembly({
 
     const profileNetwork = typeof profile.network === "object" ? profile.network : {};
     const indexerHttpUrl = env.MIDNIGHT_INDEXER_HTTP_URL || profileNetwork.indexerGraphql;
-    const indexerWsUrl = env.MIDNIGHT_INDEXER_WS_URL || profileNetwork.indexerWs || deriveIndexerWs(indexerHttpUrl);
+    const indexerWsUrl = indexerWsUrlFor(env, profileNetwork, indexerHttpUrl);
     if (!publicDataProvider) {
       const indexer = await import("@midnight-ntwrk/midnight-js-indexer-public-data-provider");
       // midnight-js 4.1.1 has no header option; Blockfrost reads project_id from the query.
@@ -1731,17 +1764,21 @@ export async function runCheck({
   const profileNetwork = typeof profile?.network === "object" ? profile.network : {};
   const indexerUrl = env.MIDNIGHT_INDEXER_HTTP_URL || profileNetwork.indexerGraphql;
   const proofUrl = env.MIDNIGHT_PROOF_SERVER_URL || "http://127.0.0.1:6300";
-  let authenticatedIndexerUrl = indexerUrl;
+  let authenticatedIndexerUrl;
   try {
     authenticatedIndexerUrl = withProviderToken(indexerUrl, env);
   } catch (error) {
     checks.push(checkResult("chain-data-token", { ok: false, message: error.message }));
   }
-  checks.push(checkResult("indexer", await endpointChecker(authenticatedIndexerUrl, { method: "POST", timeoutMs })));
+  // Without a token the Blockfrost probe can only fail with 403; skip it.
+  if (authenticatedIndexerUrl !== undefined) {
+    checks.push(checkResult("indexer", await endpointChecker(authenticatedIndexerUrl, { method: "POST", timeoutMs })));
+  }
   checks.push(checkResult("proof-server", await endpointChecker(proofUrl, { timeoutMs })));
+  const indexerWsUrl = indexerWsUrlFor(env, profileNetwork, indexerUrl);
   checks.push(checkResult("indexer-websocket", {
-    ok: Boolean(env.MIDNIGHT_INDEXER_WS_URL || profileNetwork.indexerWs || deriveIndexerWs(indexerUrl)),
-    message: env.MIDNIGHT_INDEXER_WS_URL || profileNetwork.indexerWs || deriveIndexerWs(indexerUrl) || "endpoint is not configured",
+    ok: Boolean(indexerWsUrl),
+    message: indexerWsUrl || "endpoint is not configured",
   }));
 
   const storagePath = privateStatePath || rootForAssembly(
@@ -1865,8 +1902,7 @@ async function main() {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   main().catch((error) => {
-    let message = String(error?.message ?? "Stage 4 deployment failed");
-    for (const secret of REDACTIONS) message = message.split(secret).join("[redacted]");
+    let message = redactSecrets(error?.message ?? "Stage 4 deployment failed");
     message = message.replace(/0x?[0-9a-f]{64}/gi, "[redacted]");
     console.error(`Stage 4 deployment stopped: ${message}`);
     process.exitCode = 1;

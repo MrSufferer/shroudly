@@ -17,6 +17,7 @@ import {
   runCheck,
   runDeployment,
   validateReceipt,
+  redactSecrets,
   withProviderToken,
   withTimeout,
 } from "./midnight-deploy-preprod.mjs";
@@ -393,4 +394,5 @@ test("attaches the operator Blockfrost token only to Blockfrost URLs after the W
   assert.equal(calls.length, 1);
   assert.throws(() => withProviderToken("https://midnight-preprod.blockfrost.io/api/v0", {}, { reader }), /MIDNIGHT_BLOCKFROST_SECRET_NAME/);
   assert.throws(() => withProviderToken("https://midnight-preprod.blockfrost.io/api/v0", env, { reader: () => ({ status: 44, stdout: "" }) }), /missing or malformed/);
+  assert.equal(redactSecrets("WebSocket error at wss://rpc.midnight-preprod.blockfrost.io/?project_id=operatorToken123"), "WebSocket error at wss://rpc.midnight-preprod.blockfrost.io/?project_id=[redacted]");
 });

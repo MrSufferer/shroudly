@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { Buffer } from 'node:buffer';
+import { inspect } from 'node:util';
 import { firstValueFrom } from 'rxjs';
 import { ApiPromise, WsProvider } from '@polkadot/api';
 import { u8aToHex } from '@polkadot/util';
@@ -28,13 +29,16 @@ const senderLabel = 'participant-1';
 const amount = 500_000_000n;
 const shouldSubmit = process.argv.includes('--submit');
 const inspectOffer = process.argv.includes('--inspect');
-const keychainAccount = 'shroudly-preprod';
+const keychainAccount = process.env.MIDNIGHT_KEYCHAIN_ACCOUNT || 'shroudly-preprod';
 const keychainServicePrefix = 'com.shroudly.preprod.wallet.';
 const keychainPath = '/Users/kyler/Library/Keychains/login.keychain-db';
 // The hosted Lace proof server is shut down; prove against the local 8.1.3 server.
 const provingServerUrl = process.env.MIDNIGHT_PROOF_SERVER_URL || 'http://127.0.0.1:6300';
-const blockfrostAccount = process.env.MIDNIGHT_KEYCHAIN_ACCOUNT || keychainAccount;
 const blockfrostService = process.env.MIDNIGHT_BLOCKFROST_SECRET_NAME;
+const rpcUrl = process.env.MIDNIGHT_RPC_URL || 'wss://rpc.midnight-preprod.blockfrost.io';
+const indexerHttpUrl = process.env.MIDNIGHT_INDEXER_HTTP_URL || 'https://midnight-preprod.blockfrost.io/api/v0';
+const indexerWsUrl = process.env.MIDNIGHT_INDEXER_WS_URL || 'wss://midnight-preprod.blockfrost.io/api/v0/ws';
+const redactions = new Set();
 const recipients = [
   {
     label: 'emergency',
@@ -73,16 +77,33 @@ const readSeed = (label) => {
 
 // Operator-account Blockfrost project ID, attached as a query parameter after
 // every path (including /ws) is final. It never comes from argv or a file.
+const redact = (text) => {
+  let result = String(text);
+  for (const secret of redactions) result = result.split(secret).join('[redacted]');
+  return result;
+};
+
+// The polkadot WsProvider logs failing URLs, which carry the token; route
+// every console line through the same redaction as the error summary.
+for (const level of ['log', 'info', 'warn', 'error', 'debug']) {
+  const write = console[level].bind(console);
+  console[level] = (...args) => write(...args.map((arg) => redact(
+    typeof arg === 'string' ? arg : arg instanceof Error ? arg.stack ?? arg.message : inspect(arg),
+  )));
+}
+
 const withProviderToken = (url) => {
+  const parsed = new URL(url);
+  if (!/(^|\.)blockfrost\.io$/i.test(parsed.hostname)) return url;
   if (!blockfrostService) throw new Error('MIDNIGHT_BLOCKFROST_SECRET_NAME must name the operator Blockfrost Keychain entry.');
-  const result = security(['find-generic-password', '-a', blockfrostAccount, '-s', blockfrostService, '-w']);
+  const result = security(['find-generic-password', '-a', keychainAccount, '-s', blockfrostService, '-w']);
   const token = result.status === 0 ? result.stdout.trim() : '';
   if (!/^[A-Za-z0-9._-]{1,512}$/.test(token)) throw new Error('Operator Blockfrost Keychain entry is missing or malformed.');
-  const parsed = new URL(url);
+  redactions.add(token);
   parsed.searchParams.set('project_id', token);
   return parsed.toString();
 };
-const nodeUrl = withProviderToken('wss://rpc.midnight-preprod.blockfrost.io');
+const nodeUrl = withProviderToken(rpcUrl);
 
 const derive = (label) => {
   const result = HDWallet.fromSeed(Buffer.from(readSeed(label), 'hex'));
@@ -214,8 +235,8 @@ const configuration = {
   batchUpdates: { size: 1000, timeout: 50, spacing: 0 },
   costParameters: { feeBlocksMargin: 5 },
   indexerClientConnection: {
-    indexerWsUrl: withProviderToken('wss://midnight-preprod.blockfrost.io/api/v0/ws'),
-    indexerHttpUrl: withProviderToken('https://midnight-preprod.blockfrost.io/api/v0'),
+    indexerWsUrl: withProviderToken(indexerWsUrl),
+    indexerHttpUrl: withProviderToken(indexerHttpUrl),
   },
   txHistoryStorage: new InMemoryTransactionHistoryStorage(),
 };

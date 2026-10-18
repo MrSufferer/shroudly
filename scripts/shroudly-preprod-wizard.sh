@@ -353,7 +353,7 @@ note "Captured value: VITE_SHROUDLY_SPONSOR_URL. Source: the deployed Sponsor Se
 ask VITE_SHROUDLY_SPONSOR_URL "Paste the public Sponsor Service URL:"
 require_https VITE_SHROUDLY_SPONSOR_URL "$VITE_SHROUDLY_SPONSOR_URL"
 write_env VITE_SHROUDLY_SPONSOR_URL "$VITE_SHROUDLY_SPONSOR_URL"
-step "Create the Chain Data Proxy as its own Render service. Store the public-account Blockfrost project ID only in that service's Render secret store; the Sponsor and Automation services use the separate operator account. Configure a Better Stack alert at 80% of the daily request quota."
+step "Add the Chain Data Proxy to the existing Render service. Store the public-account Blockfrost project ID only in that service's Render secret store; the Sponsor and Automation services use the separate operator account. Configure a Better Stack alert at 80% of the daily request quota."
 note "Captured value: SHROUDLY_RENDER_AUTOMATION_ENDPOINT. Source: the approved Render automation/signer endpoint. Destination: ENV_FILE only for the isolated Render contributor runner; it is public routing, not a credential."
 ask SHROUDLY_RENDER_AUTOMATION_ENDPOINT "Paste the Render automation endpoint:"
 require_https SHROUDLY_RENDER_AUTOMATION_ENDPOINT "$SHROUDLY_RENDER_AUTOMATION_ENDPOINT"
