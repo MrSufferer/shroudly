@@ -86,7 +86,7 @@ if (process.argv[2] === '--worker') {
       await step({id: 'smoke.commit.forgedPrevious', circuit: 'commit', args: [Dn - 1n, 0n], slot: 0, at: Math.max(t, first.submittedAtSeconds ?? t) + 30, forge: S0 - 900 + 60, expect: 'reject'});
       const { verdicts } = replay(evidence.steps);
       evidence.steps.forEach((record, index) => { record.replay = verdicts[index]; });
-      evidence.mismatches = evidence.steps.filter(r => (r.outcome === 'SucceedEntirely') !== (r.expected === 'accept')).map(r => r.id);
+      evidence.mismatches = evidence.steps.filter(r => r.expected !== 'probe' && (r.outcome === 'SucceedEntirely') !== (r.expected === 'accept')).map(r => r.id);
       evidence.completed = true; save(); emit({done: true, smoke: true, mismatches: evidence.mismatches});
       process.exit(evidence.mismatches.length ? 1 : 0);
     }
@@ -104,7 +104,9 @@ if (process.argv[2] === '--worker') {
     await step({id: 'D.commit.slot0', circuit: 'commit', args: [D, 0n], slot: 0, at: S + 45, expect: 'accept', note: 'honest commit inside weighting interval'});
     await step({id: 'D.commit.slot2', circuit: 'commit', args: [D, 2n], slot: 2, at: S + 90, expect: 'accept', note: 'honest commit; this slot never reveals in time'});
     await step({id: 'Dprev.commit.slot0.forged', circuit: 'commit', args: [D - 1n, 0n], slot: 0, at: S + 120, forge: S - 900 + 60, expect: 'reject', note: 'forged browser clock claims the previous interval; real network time is after its cutoff'});
-    await step({id: 'D.commit.slot1.boundary', circuit: 'commit', args: [D, 1n], slot: 1, at: S + 720 - 9, expect: 'accept', note: 'targets block time just before the three-minute commit cutoff'});
+    // Run 1 (2026-10-18) had a commit submitted 9 s before the cutoff rejected by the node (1010 custom
+    // error 104), so the honest boundary commit keeps 60 s; D2's spare slots probe 40 s and 15 s.
+    await step({id: 'D.commit.slot1.boundary', circuit: 'commit', args: [D, 1n], slot: 1, at: S + 720 - 60, expect: 'accept', note: 'honest commit 60 s before the three-minute commit cutoff'});
     await step({id: 'D.commit.slot3.late', circuit: 'commit', args: [D, 3n], slot: 3, at: S + 720 + 4, forge: S + 300, expect: 'reject', note: 'forged clock inside window, real network time past cutoff'});
     await step({id: 'D.commit.slot3.late2', circuit: 'commit', args: [D, 3n], slot: 3, at: S + 720 + 70, forge: S + 300, expect: 'reject', note: 'second late commitment'});
     await step({id: 'D.reveal.slot0.early', circuit: 'reveal', args: [D, 0n], slot: 0, at: E - 8, forge: E + 50, expect: 'reject', note: 'reveal before weighting closes'});
@@ -126,6 +128,8 @@ if (process.argv[2] === '--worker') {
     const pauseAt = E + 575;
     await step({id: 'D.pause.claims', circuit: 'pause', args: [1n, D, honestBucketAt(pauseAt), 240n], at: pauseAt, expect: 'accept', note: 'claim-blocking pause scoped to draw D only'});
     await step({id: 'D.claim.duringPause', circuit: 'claim', args: [D], at: E + 640, forge: E + 450, expect: 'reject', note: 'forged pre-pause clock; real network time is inside the pause'});
+    await step({id: 'D2.commit.slot2.cutoffProbe40', circuit: 'commit', args: [D2, 2n], slot: 2, at: E + 720 - 40, expect: 'probe', note: 'margin probe: honest commit 40 s before the cutoff'});
+    await step({id: 'D2.commit.slot3.cutoffProbe15', circuit: 'commit', args: [D2, 3n], slot: 3, at: E + 720 - 15, expect: 'probe', note: 'margin probe: honest commit 15 s before the cutoff'});
     const depositsAt = E + 880;
     await step({id: 'D.pause.deposits', circuit: 'pause', args: [2n, 0n, honestBucketAt(depositsAt), 120n], at: depositsAt, expect: 'accept', note: 'unrelated pause: must not extend any claim deadline'});
     await step({id: 'D2.reveal.slot0', circuit: 'reveal', args: [D2, 0n], slot: 0, at: E + 945, expect: 'accept'});
@@ -155,7 +159,7 @@ if (process.argv[2] === '--worker') {
     evidence.deployedOperations = states.contractState.operations ? [...states.contractState.operations()].map(String).sort() : null;
     evidence.sourceRevision = execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim();
     evidence.artifactHashes = artifactHashes();
-    evidence.mismatches = evidence.steps.filter(r => (r.outcome === 'SucceedEntirely') !== (r.expected === 'accept')).map(r => r.id);
+    evidence.mismatches = evidence.steps.filter(r => r.expected !== 'probe' && (r.outcome === 'SucceedEntirely') !== (r.expected === 'accept')).map(r => r.id);
     evidence.completed = true;
     save();
     emit({done: true, mismatches: evidence.mismatches});

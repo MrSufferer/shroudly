@@ -94,7 +94,12 @@ export async function openSession(envPath) {
     },
   };
   const midnightProvider = {
-    submitTx: async tx => { if (control.gate) await control.gate(); return wallet.submitTransaction(tx); },
+    // A rejected submission leaves its DUST spend pending locally until the TTL; revert it so
+    // later steps can balance.
+    submitTx: async tx => {
+      try { if (control.gate) await control.gate(); return await wallet.submitTransaction(tx); }
+      catch (error) { await wallet.revertTransaction(tx).catch(() => {}); throw error; }
+    },
   };
   const providers = {
     privateStateProvider: memoryPrivateState(), publicDataProvider, zkConfigProvider,
