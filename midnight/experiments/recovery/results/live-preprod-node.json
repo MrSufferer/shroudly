@@ -3,23 +3,23 @@
   "network": "preprod",
   "participantApp": "node (not Lace)",
   "walletService": "protected wallet in this parent process",
-  "startedAt": "2026-10-18T14:17:38.840Z",
+  "startedAt": "2026-10-18T18:20:32.161Z",
   "steps": [
     {
       "name": "wallet-synchronized",
-      "atMs": 147306,
+      "atMs": 68958,
       "fromCache": true,
       "dustFunded": true
     },
     {
       "name": "deployed",
-      "atMs": 323558,
-      "contract": "5b313670ae664d2a8960cefe13512c374c7fbfb435dcc3ce124478a97ace99fa",
-      "txId": "008a07a0ac8a1b1f8788aa4331b7469299afae10e0ceee520440aaefb847eed2bf"
+      "atMs": 167268,
+      "contract": "2ffeca1b1796752c0df2c4cda0bae08105b2a777c1e76d89318dd73cd3d8e7f5",
+      "txId": "0098f3a2aceae6e6aa53504ff838824703578aa89bd2585ad92194bc22c8de6cee"
     },
     {
       "name": "init-alice",
-      "atMs": 324773,
+      "atMs": 167977,
       "exit": 0,
       "outcome": {
         "cmd": "init",
@@ -39,7 +39,7 @@
     },
     {
       "name": "register",
-      "atMs": 505884,
+      "atMs": 267321,
       "exit": 0,
       "outcome": {
         "cmd": "act",
@@ -59,7 +59,7 @@
     },
     {
       "name": "export-kit-after-register",
-      "atMs": 506817,
+      "atMs": 268007,
       "exit": 0,
       "outcome": {
         "cmd": "export-kit",
@@ -78,12 +78,12 @@
     },
     {
       "name": "crash-before-submission",
-      "atMs": 508322,
+      "atMs": 269187,
       "exit": "SIGKILL"
     },
     {
       "name": "restart-reconcile-original",
-      "atMs": 2072921,
+      "atMs": 367590,
       "exit": 0,
       "outcome": {
         "cmd": "reconcile",
@@ -91,23 +91,16 @@
         "results": [
           {
             "actionId": "advance-1",
-            "outcome": "not-submitted",
-            "reason": "executor confirmed nothing was submitted"
+            "outcome": "completed"
           }
         ],
         "journal": {
-          "generation": "1",
-          "privateRound": "0",
-          "unresolved": [
-            {
-              "actionId": "advance-1",
-              "status": "prepared",
-              "circuit": "advance"
-            }
-          ]
+          "generation": "2",
+          "privateRound": "1",
+          "unresolved": []
         },
         "ledger": {
-          "round": "0",
+          "round": "1",
           "registered": true
         },
         "fresh": true
@@ -115,37 +108,29 @@
     },
     {
       "name": "crash-during-observation",
-      "atMs": 2074234,
-      "exit": 1,
-      "failed": "an unresolved action blocks new actions"
+      "atMs": 467799,
+      "exit": "SIGKILL"
     },
     {
       "name": "restart-reconcile-observed",
-      "atMs": 2393237,
+      "atMs": 468829,
       "exit": 0,
       "outcome": {
         "cmd": "reconcile",
         "name": "alice",
         "results": [
           {
-            "actionId": "advance-1",
-            "outcome": "not-submitted",
-            "reason": "executor confirmed nothing was submitted"
+            "actionId": "advance-2",
+            "outcome": "completed"
           }
         ],
         "journal": {
-          "generation": "1",
-          "privateRound": "0",
-          "unresolved": [
-            {
-              "actionId": "advance-1",
-              "status": "prepared",
-              "circuit": "advance"
-            }
-          ]
+          "generation": "3",
+          "privateRound": "2",
+          "unresolved": []
         },
         "ledger": {
-          "round": "0",
+          "round": "2",
           "registered": true
         },
         "fresh": true
@@ -153,37 +138,29 @@
     },
     {
       "name": "crash-after-finality",
-      "atMs": 2394488,
-      "exit": 1,
-      "failed": "an unresolved action blocks new actions"
+      "atMs": 570262,
+      "exit": "SIGKILL"
     },
     {
       "name": "restart-reconcile-persist",
-      "atMs": 2705262,
+      "atMs": 571133,
       "exit": 0,
       "outcome": {
         "cmd": "reconcile",
         "name": "alice",
         "results": [
           {
-            "actionId": "advance-1",
-            "outcome": "not-submitted",
-            "reason": "executor confirmed nothing was submitted"
+            "actionId": "advance-3",
+            "outcome": "completed"
           }
         ],
         "journal": {
-          "generation": "1",
-          "privateRound": "0",
-          "unresolved": [
-            {
-              "actionId": "advance-1",
-              "status": "prepared",
-              "circuit": "advance"
-            }
-          ]
+          "generation": "4",
+          "privateRound": "3",
+          "unresolved": []
         },
         "ledger": {
-          "round": "0",
+          "round": "3",
           "registered": true
         },
         "fresh": true
@@ -191,92 +168,95 @@
     },
     {
       "name": "crash-during-handoff",
-      "atMs": 2706848,
-      "exit": 1,
-      "failed": "an unresolved action blocks new actions"
+      "atMs": 666059,
+      "exit": "SIGKILL"
     },
     {
       "name": "restart-reconcile-handoff",
-      "atMs": 3100402,
+      "atMs": 666920,
       "exit": 0,
       "outcome": {
         "cmd": "reconcile",
         "name": "alice",
         "results": [
           {
-            "actionId": "advance-1",
-            "outcome": "not-submitted",
-            "reason": "executor confirmed nothing was submitted"
+            "actionId": "advance-4",
+            "outcome": "completed"
           }
         ],
         "journal": {
-          "generation": "1",
-          "privateRound": "0",
-          "unresolved": [
-            {
-              "actionId": "advance-1",
-              "status": "prepared",
-              "circuit": "advance"
-            }
-          ]
+          "generation": "5",
+          "privateRound": "4",
+          "unresolved": []
         },
-        "ledger": null,
-        "fresh": null
+        "ledger": {
+          "round": "4",
+          "registered": true
+        },
+        "fresh": true
       }
     },
     {
       "name": "export-kit-current",
-      "atMs": 3110925,
+      "atMs": 667491,
       "exit": 0,
       "outcome": {
         "cmd": "export-kit",
         "name": "alice",
         "journal": {
-          "generation": "1",
-          "privateRound": "0",
-          "unresolved": [
-            {
-              "actionId": "advance-1",
-              "status": "prepared",
-              "circuit": "advance"
-            }
-          ]
+          "generation": "5",
+          "privateRound": "4",
+          "unresolved": []
         },
-        "ledger": null,
-        "fresh": null
+        "ledger": {
+          "round": "4",
+          "registered": true
+        },
+        "fresh": true
       }
     },
     {
       "name": "restore-current-kit-fresh-profile",
-      "atMs": 3624362,
+      "atMs": 668749,
       "exit": 0,
       "outcome": {
         "cmd": "restore-kit",
         "name": "alice-restored",
         "journal": {
-          "generation": "1",
-          "privateRound": "0",
-          "unresolved": [
-            {
-              "actionId": "advance-1",
-              "status": "prepared",
-              "circuit": "advance"
-            }
-          ]
+          "generation": "5",
+          "privateRound": "4",
+          "unresolved": []
         },
-        "ledger": null,
-        "fresh": null
+        "ledger": {
+          "round": "4",
+          "registered": true
+        },
+        "fresh": true
       }
     },
     {
       "name": "advance-from-restored-kit",
-      "atMs": 3631572,
-      "exit": 1,
-      "failed": "an unresolved action blocks new actions"
+      "atMs": 769291,
+      "exit": 0,
+      "outcome": {
+        "cmd": "act",
+        "name": "alice-restored",
+        "outcome": "completed",
+        "journal": {
+          "generation": "6",
+          "privateRound": "5",
+          "unresolved": []
+        },
+        "ledger": {
+          "round": "5",
+          "registered": true
+        },
+        "fresh": true
+      }
     },
     {
       "name": "restore-older-kit-is-stale",
-      "atMs": 3745421,
+      "atMs": 770011,
       "exit": 0,
       "outcome": {
         "cmd": "restore-kit",
@@ -287,42 +267,21 @@
           "unresolved": []
         },
         "ledger": {
-          "round": "0",
+          "round": "5",
           "registered": true
         },
-        "fresh": true
+        "fresh": false
       }
     },
     {
       "name": "stale-kit-cannot-act",
-      "atMs": 4032949,
-      "exit": 0,
-      "outcome": {
-        "cmd": "act",
-        "name": "alice-stale",
-        "outcome": "not-submitted",
-        "reason": "executor confirmed nothing was submitted",
-        "journal": {
-          "generation": "1",
-          "privateRound": "0",
-          "unresolved": [
-            {
-              "actionId": "stale-1",
-              "status": "prepared",
-              "circuit": "advance"
-            }
-          ]
-        },
-        "ledger": {
-          "round": "0",
-          "registered": true
-        },
-        "fresh": true
-      }
+      "atMs": 771032,
+      "exit": 1,
+      "failed": "failed assert: private state is stale or foreign"
     },
     {
       "name": "init-bob-same-deployment",
-      "atMs": 4033688,
+      "atMs": 771580,
       "exit": 0,
       "outcome": {
         "cmd": "init",
@@ -342,7 +301,7 @@
     },
     {
       "name": "bob-unregistered-while-alice-registered",
-      "atMs": 4034257,
+      "atMs": 772129,
       "exit": 0,
       "outcome": {
         "cmd": "reconcile",
@@ -364,61 +323,53 @@
   "submissions": [
     {
       "circuit": "register",
-      "at": 326844,
-      "txId": "00aa98e069e786c68aab78f8ff1edafd75216494170cc50958adb064ee45c6261b",
+      "at": 169444,
+      "txId": "00b45fe9e1074095e08550c173bc549405d84acee487143ee9888b03c7bec66632",
       "outcome": "handed-off",
       "finalStatus": "SUCCESS"
     },
     {
       "circuit": "advance",
-      "at": 509215,
-      "outcome": "not-submitted",
-      "detail": "FiberFailureImpl: unreachable <- OtherWalletError: unreachable <- RuntimeError: unreachable"
+      "at": 269787,
+      "txId": "007537a3ceb4505a722034776306ffe59da070944f75bffbf4bc17ec87ca2530ed",
+      "outcome": "handed-off",
+      "finalStatus": "SUCCESS"
     },
     {
       "circuit": "advance",
-      "at": 2075136,
-      "outcome": "not-submitted",
-      "detail": "FiberFailureImpl: unreachable <- OtherWalletError: unreachable <- RuntimeError: unreachable"
+      "at": 369594,
+      "txId": "002351475597fb62cae603eba3fa7d8fb718a325fa05f0133811929e129f02b443",
+      "outcome": "handed-off",
+      "finalStatus": "SUCCESS"
     },
     {
       "circuit": "advance",
-      "at": 2395173,
-      "outcome": "not-submitted",
-      "detail": "FiberFailureImpl: unreachable <- OtherWalletError: unreachable <- RuntimeError: unreachable"
+      "at": 470213,
+      "txId": "00776b6c0911eeaf3223ef05f35e7a651b159d0475de64fbea86aadee6608b55ce",
+      "outcome": "handed-off",
+      "finalStatus": "SUCCESS"
     },
     {
       "circuit": "advance",
-      "at": 2707556,
-      "outcome": "not-submitted",
-      "detail": "FiberFailureImpl: unreachable <- OtherWalletError: unreachable <- RuntimeError: unreachable"
+      "at": 572567,
+      "txId": "0044c71733c0ba2148078dc9be416e5d852d67334f16dbdb3ed6a951fe245ebdbb",
+      "outcome": "handed-off",
+      "finalStatus": "SUCCESS"
     },
     {
       "circuit": "advance",
-      "at": 3747598,
-      "outcome": "not-submitted",
-      "detail": "FiberFailureImpl: unreachable <- OtherWalletError: unreachable <- RuntimeError: unreachable"
+      "at": 670192,
+      "txId": "000a4da88ba56139b329632758fa1c97ce96b70f5ff36eea2956b85259194348cd",
+      "outcome": "handed-off",
+      "finalStatus": "SUCCESS"
     }
   ],
-  "deployment": "5b313670ae664d2a8960cefe13512c374c7fbfb435dcc3ce124478a97ace99fa",
-  "deploymentTx": "008a07a0ac8a1b1f8788aa4331b7469299afae10e0ceee520440aaefb847eed2bf",
+  "deployment": "2ffeca1b1796752c0df2c4cda0bae08105b2a777c1e76d89318dd73cd3d8e7f5",
+  "deploymentTx": "0098f3a2aceae6e6aa53504ff838824703578aa89bd2585ad92194bc22c8de6cee",
   "assessment": {
-    "passed": false,
-    "failures": [
-      "restart-reconcile-original",
-      "crash-during-observation",
-      "restart-reconcile-observed",
-      "crash-after-finality",
-      "restart-reconcile-persist",
-      "crash-during-handoff",
-      "restart-reconcile-handoff",
-      "restore-current-kit-fresh-profile",
-      "advance-from-restored-kit",
-      "restore-older-kit-is-stale",
-      "stale-kit-cannot-act",
-      "submissions"
-    ]
+    "passed": true,
+    "failures": []
   },
-  "result": "failed-checks",
-  "finishedAt": "2026-10-18T15:24:53.099Z"
+  "result": "completed",
+  "finishedAt": "2026-10-18T18:33:24.290Z"
 }
