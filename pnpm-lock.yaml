@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@midnight-ntwrk/onchain-runtime-v3': 3.0.0
+
 importers:
 
   .:
@@ -776,7 +779,7 @@ packages:
   /@midnight-ntwrk/compact-runtime@0.16.0:
     resolution: {integrity: sha512-UR8+MI5zol+gkne17ZZru8xmZNf11xMgQJkiLT9KWsF+QD8Wuz1WONaqQLL0RAZ2aN2XlRsBFd0ViKDVh8prFw==}
     dependencies:
-      '@midnight-ntwrk/onchain-runtime-v3': 3.1.1
+      '@midnight-ntwrk/onchain-runtime-v3': 3.0.0
       '@types/object-inspect': 1.13.0
       object-inspect: 1.13.4
     dev: false
@@ -889,10 +892,6 @@ packages:
 
   /@midnight-ntwrk/onchain-runtime-v3@3.0.0:
     resolution: {integrity: sha512-HbFbUOsvgpEFy1OT0Ni2LMFk4jnMQS1em+H+Mof/B3DpnNKl0Lkx5QiulKOc6pyU4KPEagOqx4fYNyVXFwgZ7g==}
-    dev: false
-
-  /@midnight-ntwrk/onchain-runtime-v3@3.1.1:
-    resolution: {integrity: sha512-3H5soWI8fWrngV/BzFpZMbx/JsyaK0us8MYe+P8ruwR01SdVMZiypWZRmKq2Dmwn0ZurE3mOdyOd+oYPH7VvTA==}
     dev: false
 
   /@midnight-ntwrk/platform-js@2.2.4:
