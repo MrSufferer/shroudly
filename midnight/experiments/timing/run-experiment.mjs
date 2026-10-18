@@ -49,7 +49,10 @@ if (process.argv[2] === '--worker') {
       return module.ledger(states.contractState.data ?? states.contractState);
     };
     const step = async ({id, circuit, args, slot = 0, forge, at, expect, note}) => {
-      await waitUntil(at - 25); // preparation (lock, evaluation, proof, balancing) happens before the target
+      // Preparation (lock, evaluation, proof, balancing) happens before the target. An honest
+      // step evaluates against real network time, so its target sits at least 45 s inside its
+      // window: evaluation then runs no earlier than 20 s after the window opens.
+      await waitUntil(at - 25);
       const record = {id, circuit, args: args.map(String), slot, forgedClockSeconds: forge ?? null, targetSeconds: at, expected: expect, note};
       await withWalletLock(async lockWaitMs => {
         record.lockWaitMs = lockWaitMs;
@@ -79,12 +82,13 @@ if (process.argv[2] === '--worker') {
       let S0 = Math.floor(t / 900) * 900;
       if (t + 40 > S0 + 700) S0 += 900;
       const Dn = BigInt(S0 / 900);
-      const first = await step({id: 'smoke.commit', circuit: 'commit', args: [Dn, 0n], slot: 0, at: Math.max(t + 40, S0 + 5), expect: 'accept'});
+      const first = await step({id: 'smoke.commit', circuit: 'commit', args: [Dn, 0n], slot: 0, at: Math.max(t + 40, S0 + 45), expect: 'accept'});
       await step({id: 'smoke.commit.forgedPrevious', circuit: 'commit', args: [Dn - 1n, 0n], slot: 0, at: Math.max(t, first.submittedAtSeconds ?? t) + 30, forge: S0 - 900 + 60, expect: 'reject'});
       const { verdicts } = replay(evidence.steps);
       evidence.steps.forEach((record, index) => { record.replay = verdicts[index]; });
-      evidence.completed = true; save(); emit({done: true, smoke: true});
-      process.exit(0);
+      evidence.mismatches = evidence.steps.filter(r => (r.outcome === 'SucceedEntirely') !== (r.expected === 'accept')).map(r => r.id);
+      evidence.completed = true; save(); emit({done: true, smoke: true, mismatches: evidence.mismatches});
+      process.exit(evidence.mismatches.length ? 1 : 0);
     }
 
     // ---- Schedule: draw D starts at the next UTC quarter-hour at least five minutes away.
@@ -97,15 +101,15 @@ if (process.argv[2] === '--worker') {
     save();
     emit({stage: 'planned', S, secondsUntilStart: Math.round(S - now0)});
 
-    await step({id: 'D.commit.slot0', circuit: 'commit', args: [D, 0n], slot: 0, at: S + 30, expect: 'accept', note: 'honest commit inside weighting interval'});
-    await step({id: 'D.commit.slot2', circuit: 'commit', args: [D, 2n], slot: 2, at: S + 75, expect: 'accept', note: 'honest commit; this slot never reveals in time'});
+    await step({id: 'D.commit.slot0', circuit: 'commit', args: [D, 0n], slot: 0, at: S + 45, expect: 'accept', note: 'honest commit inside weighting interval'});
+    await step({id: 'D.commit.slot2', circuit: 'commit', args: [D, 2n], slot: 2, at: S + 90, expect: 'accept', note: 'honest commit; this slot never reveals in time'});
     await step({id: 'Dprev.commit.slot0.forged', circuit: 'commit', args: [D - 1n, 0n], slot: 0, at: S + 120, forge: S - 900 + 60, expect: 'reject', note: 'forged browser clock claims the previous interval; real network time is after its cutoff'});
     await step({id: 'D.commit.slot1.boundary', circuit: 'commit', args: [D, 1n], slot: 1, at: S + 720 - 9, expect: 'accept', note: 'targets block time just before the three-minute commit cutoff'});
     await step({id: 'D.commit.slot3.late', circuit: 'commit', args: [D, 3n], slot: 3, at: S + 720 + 4, forge: S + 300, expect: 'reject', note: 'forged clock inside window, real network time past cutoff'});
     await step({id: 'D.commit.slot3.late2', circuit: 'commit', args: [D, 3n], slot: 3, at: S + 720 + 70, forge: S + 300, expect: 'reject', note: 'second late commitment'});
     await step({id: 'D.reveal.slot0.early', circuit: 'reveal', args: [D, 0n], slot: 0, at: E - 8, forge: E + 50, expect: 'reject', note: 'reveal before weighting closes'});
-    await step({id: 'D.reveal.slot0', circuit: 'reveal', args: [D, 0n], slot: 0, at: E + 20, expect: 'accept', note: 'honest reveal'});
-    await step({id: 'D.reveal.slot1', circuit: 'reveal', args: [D, 1n], slot: 1, at: E + 65, expect: 'accept', note: 'honest reveal'});
+    await step({id: 'D.reveal.slot0', circuit: 'reveal', args: [D, 0n], slot: 0, at: E + 45, expect: 'accept', note: 'honest reveal'});
+    await step({id: 'D.reveal.slot1', circuit: 'reveal', args: [D, 1n], slot: 1, at: E + 90, expect: 'accept', note: 'honest reveal'});
     const earlyForge = E + 330;
     await step({id: 'D.finalize.early', circuit: 'finalize', args: [D, bucketAt(earlyForge)], at: E + 150, forge: earlyForge, expect: 'reject', note: 'forged clock past the reveal window; real network time is inside it'});
     await step({id: 'D.reveal.slot2.late', circuit: 'reveal', args: [D, 2n], slot: 2, at: E + 315, forge: E + 100, expect: 'reject', note: 'late reveal with forged in-window clock'});
@@ -124,8 +128,8 @@ if (process.argv[2] === '--worker') {
     await step({id: 'D.claim.duringPause', circuit: 'claim', args: [D], at: E + 640, forge: E + 450, expect: 'reject', note: 'forged pre-pause clock; real network time is inside the pause'});
     const depositsAt = E + 880;
     await step({id: 'D.pause.deposits', circuit: 'pause', args: [2n, 0n, honestBucketAt(depositsAt), 120n], at: depositsAt, expect: 'accept', note: 'unrelated pause: must not extend any claim deadline'});
-    await step({id: 'D2.reveal.slot0', circuit: 'reveal', args: [D2, 0n], slot: 0, at: E + 915, expect: 'accept'});
-    await step({id: 'D2.reveal.slot1', circuit: 'reveal', args: [D2, 1n], slot: 1, at: E + 960, expect: 'accept'});
+    await step({id: 'D2.reveal.slot0', circuit: 'reveal', args: [D2, 0n], slot: 0, at: E + 945, expect: 'accept'});
+    await step({id: 'D2.reveal.slot1', circuit: 'reveal', args: [D2, 1n], slot: 1, at: E + 990, expect: 'accept'});
     const finalize2At = E + 1200 + 55;
     await step({id: 'D2.finalize', circuit: 'finalize', args: [D2, honestBucketAt(finalize2At)], at: finalize2At, expect: 'accept'});
 
@@ -151,9 +155,11 @@ if (process.argv[2] === '--worker') {
     evidence.deployedOperations = states.contractState.operations ? [...states.contractState.operations()].map(String).sort() : null;
     evidence.sourceRevision = execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim();
     evidence.artifactHashes = artifactHashes();
+    evidence.mismatches = evidence.steps.filter(r => (r.outcome === 'SucceedEntirely') !== (r.expected === 'accept')).map(r => r.id);
     evidence.completed = true;
     save();
-    emit({done: true});
+    emit({done: true, mismatches: evidence.mismatches});
+    if (evidence.mismatches.length) process.exitCode = 1;
   } catch (error) {
     evidence.failure = errorClass(error); save(); process.exitCode = 1;
     emit({done: false, error: errorClass(error), detail: errorDetail(error)});
