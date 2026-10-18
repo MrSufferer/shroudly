@@ -74,8 +74,9 @@ Run the serialized journey with the protected reference file (never pass secrets
 on the command line):
 
 ```sh
-SHROUDLY_CUSTODY_WALLET_CACHE=/tmp/shroudly-timing-wallet-cache node midnight/experiments/custody/journey.mjs /absolute/path/to/.env.preprod-access.local
+SHROUDLY_CUSTODY_WALLET_CACHE=$HOME/Library/Caches/shroudly/wallet-cache-21 node midnight/experiments/custody/journey.mjs /absolute/path/to/.env.preprod-access.local
 node midnight/experiments/custody/evidence-manifest.mjs
+node midnight/experiments/custody/limits.mjs
 node midnight/experiments/custody/separated/probe-call.mjs
 node --test midnight/experiments/custody/*.test.mjs midnight/experiments/custody/separated/*.test.mjs
 ```
@@ -83,7 +84,9 @@ node --test midnight/experiments/custody/*.test.mjs midnight/experiments/custody
 Only one process may use the shared wallet. The runner serializes submissions
 with `/tmp/shroudly-wallet.lock` and waits for wallet synchronization under the
 lock. It never re-registers NIGHT for DUST. The cache contains wallet sync state
-and is kept outside Git with owner-only permissions. Remove it to sync afresh.
+and is kept outside Git with owner-only permissions. Copy the shared cache into a
+per-ticket directory first so peer sessions never overwrite each other's saves;
+removing it forces a slow sync from genesis.
 Finality and indexer availability are observed through SDK submission results and
 fresh indexer queries; elapsed waits alone never establish acceptance.
 
@@ -115,13 +118,42 @@ its revision does not identify the revised script hashes. Its zero DUST deltas
 used stale wallet snapshots and are not reliable cost measurements. The
 interrupted separated claim has an unknown outcome pending a fresh indexer read.
 
+The 2026-10-18 run (started 16:17:10Z, 427 s, `complete: true`) supersedes the
+2026-10-17 checkpoints:
+
 | Measurement | Co-located | Separated |
 | --- | --- | --- |
-| Finalized deploy | block 3021818, 24,002 ms, 11,056 bytes | asset block 3021827, 23,921 ms; pool block 3021836, 24,183 ms |
-| Finalized seed | block 3021823, 29,274 ms, 13,991 bytes; one contract output | asset block 3021832, 29,653 ms |
-| Allocation / withdrawal | not reached: ledger reader failure | forged claim interrupted; outcome unknown |
+| Finalized deploy | block 3037093, 25,161 ms, 11,058 bytes | asset block 3037114, 30,366 ms; pool block 3037125, 24,618 ms |
+| Finalized seed | block 3037098, 29,431 ms, 13,994 bytes; one contract output | asset block 3037120, 36,226 ms |
+| Allocation | block 3037103, 26,874 ms; repeated allocation rejected | forged claim finalized at block 3037129, forged randomness at 3037133 |
+| Withdrawal | block 3037109, 38,629 ms, 24,257 bytes; one contract input and output; wallet received 400,000 of the custody color | no authenticated release path |
+| Fresh indexer reconciliation | custody 1,600,000 = principal 600,000 + reserve 999,900 + prize 100; color derived from contract address | custody 2,000,000 against claimed liabilities 5,000,100: not reconciled |
+| Rejections (generated constraints on fetched state) | forged draw, contributor binding, duplicate contributor, unauthorized release, principal over liability, repeated allocation: 6/6 rejected with matched reasons | caller claims accepted |
 | Authenticated boundary | same-contract constraints available | compiler 0.31.1 rejects cross-contract calls on ledger-8.0.2 |
-| Qualification | incomplete; no verified wallet receipt yet | caller claims cannot establish authenticated separation |
+| Qualification | enforceable custody and reconciliation on Preprod | caller claims cannot establish authenticated separation |
+
+Every step's DUST delta was 0: Preprod fee prices sat at their floor, and
+DUST fees round to zero. That exposed a wallet SDK fault. In dust-wallet
+4.2.0, `computeBalancingRecipe` selects no DUST for a 0 fee and then re-prices
+the empty DUST intent (fee 1) indefinitely, until wasm reports `unreachable`
+after about 19 minutes. Deploy and seed escaped only because their fee was
+nonzero. `protected-wallet.mjs` sets `costParameters.additionalFeeOverhead`,
+so balancing always selects a coin and converges.
+
+The run that preceded it (16:08Z) failed CustodyProbe deploy with
+`operation-failed` after 1.5 s and captured no detail. A no-submit deploy check
+and the next live run both succeeded, so the cause remains unknown. Its hashes
+are superseded. The next run locally captured the redacted error chain behind a
+debug flag; that logging is not committed. As a result its manifest reports
+`workingTreeDirty: true` with a `journey.mjs` hash for the patched file. The
+committed runner at revision 2fc13c3 differs only by that logging.
+
+`limits.mjs` writes `limits-result.json`. It records k from proof server 8.1.3's
+`/k` for every deployed circuit (largest 15; limit 25) and the verifier key sizes
+(largest 2,119 bytes; limit 50,000 bytes). It also checks the finalized
+transaction sizes the journey measures: deploy, seed and withdraw, largest 24,257
+bytes against a limit of 786,432. Allocation and separated transactions are not
+byte-measured; their circuits have k no larger than seed's.
 
 The revised runner checkpoints each submitted hash before waiting, caps node
 finality and transaction-indexer waits at 180 seconds each, and aborts further
@@ -138,7 +170,7 @@ second live run finalized seed, then exposed a separate reader error: generated
 `ledger()` requires `ContractState.data` (a ChargedState), rather than the SDK
 ContractState wrapper. The regression now reproduces that failure before the
 fix and exercises the corrected generated-ledger read.
-Fifteen offline tests pass, including generated custody/rejection constraints,
+Sixteen offline tests pass, including generated custody/rejection constraints,
 separated forgery, runtime compatibility, protected configuration/proxy and cache.
 Proxy tests require local loopback listening outside the restricted sandbox.
 

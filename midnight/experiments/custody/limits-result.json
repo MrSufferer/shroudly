@@ -1,0 +1,41 @@
+{
+  "limits": {
+    "transactionBytes": 786432,
+    "k": 25,
+    "verifierKeyBytes": 50000
+  },
+  "proofServer": "8.1.3",
+  "journeyStartedAt": "2026-10-18T16:17:10.530Z",
+  "circuits": {
+    "custody-probe/allocateYield": {
+      "k": 14,
+      "verifierKeyBytes": 2119
+    },
+    "custody-probe/seed": {
+      "k": 15,
+      "verifierKeyBytes": 2119
+    },
+    "custody-probe/withdraw": {
+      "k": 15,
+      "verifierKeyBytes": 2119
+    },
+    "separated-asset/seed": {
+      "k": 15,
+      "verifierKeyBytes": 2119
+    },
+    "separated-pool/allocateYield": {
+      "k": 9,
+      "verifierKeyBytes": 1351
+    },
+    "separated-pool/recordSeed": {
+      "k": 13,
+      "verifierKeyBytes": 2119
+    }
+  },
+  "transactions": {
+    "deploy": 11058,
+    "seed": 13994,
+    "withdraw": 24257
+  },
+  "withinLimits": true
+}
