@@ -169,6 +169,26 @@ async function worker(envPath) {
         contractInputs: events.filter((c) => c.tag === 'zswapInput' && c.contract === address).length,
       };
     };
+    // Contract state as of the transaction's own block, not whatever the indexer reports as latest.
+    const stateAt = async (address, blockHeight) => {
+      const state = await publicDataProvider.queryContractState(address, { type: 'blockHeight', blockHeight });
+      if (!state) throw Error('contract state not indexed');
+      return readContractLedger(readLedger, state);
+    };
+    // The transaction's contract output must commit to the custody coin recorded in that block.
+    // A mismatch is re-read once from a fresh query; both public commitments are recorded.
+    const commitmentCheck = async (stage, submitted, address, firstEvidence) => {
+      let evidence = firstEvidence;
+      for (let attempt = 1; ; attempt++) {
+        const custody = contractCommitment((await stateAt(address, submitted.blockHeight)).custody, address);
+        const outputCommitments = (evidence?.outputs ?? []).map(output => output.commitment);
+        const matched = outputCommitments.includes(custody);
+        send({ custodyCommitment: { stage, matched, attempt, contractCommitment: custody, outputCommitments } });
+        if (matched || attempt === 2) return matched;
+        await sleep(10000);
+        evidence = await transactionEvidence(submitted.txHash, address);
+      }
+    };
     const publicOf = (finalized) => ({ txHash: finalized.public.txHash, blockHeight: Number(finalized.public.blockHeight), blockHash: finalized.public.blockHash, status: String(finalized.public.status) });
     const submitCall = (address, circuitId, args = [], target = probe) => withLock(opened, async () => {
       const started = Date.now();
@@ -215,12 +235,9 @@ async function worker(envPath) {
     const seedEvidence = await step('seed-indexer', () => transactionEvidence(seed.value.txHash, address));
     send({ step: { name: 'seed', ...seed.value, txBytes: seedEvidence.value?.txBytes, contractOutputs: seedEvidence.value?.outputs.length } });
     if (seedEvidence.value?.outputs.length !== 1) { send({ failure: { step: 'seed-index', category: 'unexpected-contract-output-count' } }); return; }
-    const afterSeed = await step('seed-state', async () => {
-      const states = await contracts.getPublicStates(publicDataProvider, address);
-      return readContractLedger(readLedger, states.contractState);
-    });
+    const afterSeed = await step('seed-state', () => stateAt(address, seed.value.blockHeight));
     if (!afterSeed.ok) return;
-    send({ custodyCommitment: { stage: 'seed', matched: seedEvidence.value.outputs[0].commitment === contractCommitment(afterSeed.value.custody, address) } });
+    await step('seed-commitment', () => commitmentCheck('seed', seed.value, address, seedEvidence.value));
     qualifiedCoin = { ...afterSeed.value.custody, mt_index: seedEvidence.value.outputs[0].mtIndex };
 
     // 3. Live-state rejections (rejected locally before any submission)
@@ -248,8 +265,7 @@ async function worker(envPath) {
     // 6. Fresh-indexer reconciliation and wallet-side release observation
     const fresh = await step('fresh-reconciliation', () => freshReconciliation(address));
     if (fresh.ok) {
-      const finalContract = await step('withdraw-commitment', async () => readContractLedger(readLedger, (await contracts.getPublicStates(indexer.indexerPublicDataProvider(http, ws), address)).contractState));
-      send({ custodyCommitment: { stage: 'withdraw', matched: finalContract.ok && withdrawEvidence.value?.outputs.some(output => output.commitment === contractCommitment(finalContract.value.custody, address)) === true } });
+      await step('withdraw-commitment', () => commitmentCheck('withdraw', withdraw.value, address, withdrawEvidence.value));
       send({ reconciliation: fresh.value });
     }
     const finalState = await opened.wallet.waitForSyncedState();
@@ -342,7 +358,9 @@ child.on('message', (m) => {
     const r = m.reconciliation.reconciliation;
     evidence.freshIndexerReconciliation = { ...Object.fromEntries(['custodyValue', 'principalLiability', 'prizeReserve', 'prizeLiability', 'liabilitiesTotal'].map((k) => [k, str(r?.[k], /^\d{1,30}$/)])), reconciled: r?.reconciled === true, custodyColor: str(m.reconciliation.custodyColor, /^[0-9a-f]{64}$/), allocatedYield: str(m.reconciliation.allocatedYield, /^\d{1,30}$/), seeded: m.reconciliation.seeded === true, colorDerivedFromContractAddress: m.reconciliation.colorDerivedFromContractAddress === true };
   }
-  if (m?.custodyCommitment && ['seed','withdraw'].includes(m.custodyCommitment.stage)) { evidence.custodyCommitments ??= {}; evidence.custodyCommitments[m.custodyCommitment.stage] = m.custodyCommitment.matched === true; }
+  if (m?.custodyCommitment && ['seed','withdraw'].includes(m.custodyCommitment.stage)) { evidence.custodyCommitments ??= {}; evidence.custodyCommitments[m.custodyCommitment.stage] = m.custodyCommitment.matched === true;
+    const hex = (v) => str(v, /^[0-9a-f]{64}$/);
+    (evidence.custodyCommitmentReads ??= []).push({ stage: m.custodyCommitment.stage, attempt: num(m.custodyCommitment.attempt), matched: m.custodyCommitment.matched === true, contractCommitment: hex(m.custodyCommitment.contractCommitment), outputCommitments: (Array.isArray(m.custodyCommitment.outputCommitments) ? m.custodyCommitment.outputCommitments : []).slice(0, 4).map(hex) }); }
   if (m?.walletRelease) evidence.walletRelease = { shieldedColorBalances: Object.fromEntries(Object.entries(m.walletRelease.shieldedColorBalances ?? {}).filter(([k, v]) => /^[0-9a-f]{64}$/.test(k) && /^\d{1,30}$/.test(v))) };
   if (m?.failure) { console.error(JSON.stringify({failureStep: str(m.failure.step, /^[a-z-]{1,40}$/), category: ['credential-unavailable','endpoint-invalid','wallet-initialization-failed','wallet-startup-failed','wallet-synchronization-failed','outcome-unknown','runtime-statevalue-mismatch','unexpected-contract-output-count','qualified-coin-unavailable','indexer-query-failed','operation-failed'].includes(m.failure.category) ? m.failure.category : 'operation-failed'})); evidence.failures.push({ step: str(m.failure.step, /^[a-z-]{1,40}$/), category: ['credential-unavailable','endpoint-invalid','wallet-initialization-failed','wallet-startup-failed','wallet-synchronization-failed','outcome-unknown','runtime-statevalue-mismatch','unexpected-contract-output-count','qualified-coin-unavailable','indexer-query-failed','operation-failed'].includes(m.failure.category) ? m.failure.category : 'operation-failed' }); }
   writeFileSync(resultPath, JSON.stringify(evidence, null, 2) + '\n');

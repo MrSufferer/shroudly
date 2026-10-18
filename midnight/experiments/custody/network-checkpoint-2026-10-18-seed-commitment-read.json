@@ -1,0 +1,270 @@
+{
+  "manifest": {
+    "executionScripts": {
+      "runtime-state.mjs": "da4492679405951dfca5f750ef7e7dbddebfd7ff855768102e6c54a53647ecdf",
+      "journey.mjs": "4102898c680dcf3f1897dd27114d29b067b78ee72e29001e60ea951b983fd831",
+      "protected-wallet.mjs": "9322a02f34cfce687f3990c9ba614b25cf0e105b6ab1929892bb3fee3afb2ca8",
+      "provider-proxy.mjs": "ef4b183186aa5caf13ba4865dfe75063a14e552938760f75767e3af2fc6617ba",
+      "wallet-cache.mjs": "a31f677add7ceb01960bc743ec05ce932222297dd9d284fbc48a8efe60cb66db",
+      "reconciliation.mjs": "51a78f2d441e23ebc6541613701e76d8fa8cbb726b2e99d729217b83b0d4259d",
+      "evidence-manifest.mjs": "36ab0a4d7420b586f8dada75681fce8fba167cac0177969b2160ddb37f3f67c2",
+      "separated/probe-call.mjs": "e6547c35bff53cc48de08de4dfcb69d6e9f435ea93f7879b9eb38fb498189d33"
+    },
+    "workingTreeDirty": false,
+    "sourceRevision": "2ba0c3856eda896601de696bf96cc020b97b2d25",
+    "node": "v24.10.0",
+    "versions": {
+      "@midnight-ntwrk/compact-runtime": "0.16.0",
+      "@midnight-ntwrk/midnight-js-contracts": "4.1.1",
+      "@midnight-ntwrk/midnight-js-protocol": "4.1.1",
+      "@midnight-ntwrk/wallet-sdk": "1.2.0",
+      "@midnight-ntwrk/ledger-v8": "8.1.0"
+    },
+    "sources": {
+      "CustodyProbe.compact": "e037a5ae6fd5e8bbadf9dbab39a25ca842f309bd0d4464db21b035eecf1cc01c",
+      "separated/SeparatedAsset.compact": "c09e6c03c0dcc7aa9e7b8621e51014d708b4ce29b0db57eea7dabc77176376be",
+      "separated/SeparatedPool.compact": "dd725f348c00fd35e9af7fe199b0f45161760c8b4adf9accffddf9f445062187",
+      "separated/CrossContractPool.compact": "912114e59bc5b72aa822323e2eb9449940c9aa036617bc4b29d4d886541e4dde",
+      "separated/AuthenticatedAsset.compact": "8f2074fe6397f89d0fdf5be34bf48f379c0b8f8f919c95c9d254db51be8f4eff"
+    },
+    "artifacts": {
+      "custody-probe/contract/index.js": "7d35ec37fc5c3a6ba85f13127208708024171fcfb0846cec4a1e1a32dd30704c",
+      "custody-probe/keys/allocateYield.prover": "d36b37488410b0fdfc2c781ad008d18e1ed4ddbc184d37edfe3d8c11058779e8",
+      "custody-probe/keys/allocateYield.verifier": "1c41db1828dbdc26a5ec692d708244cc09678b40078cb090565f65e1d7f1343f",
+      "custody-probe/keys/seed.prover": "53a22826d0346c3d1d0a13d79eba311714459f625a31e5cfa1b4c269dcd0156e",
+      "custody-probe/keys/seed.verifier": "6b6d98de370386220ea675eaa50627d7e21c3a72d5639471bf438a08944e0b8f",
+      "custody-probe/keys/withdraw.prover": "baa1d6aa9e1522b70200a9db8a5dc9a72be17dd6173b1184b84d908eaf183393",
+      "custody-probe/keys/withdraw.verifier": "cf9106c819588ebb0f6e012307a638768f939dd87fcd0a80c129f7e8d35ab49c",
+      "custody-probe/zkir/allocateYield.bzkir": "d7233cc667fe43e91a905befc52fbf2979825f9738e40202e1f3456178f13cd3",
+      "custody-probe/zkir/allocateYield.zkir": "71331b92620f8075de7484d341f9e287e9cb5245a1303c47a0ec06f3eb681603",
+      "custody-probe/zkir/seed.bzkir": "132342fe0cc9017c8232cf18af0d2228ba4a1ebb5ee973a3966d0903bc520347",
+      "custody-probe/zkir/seed.zkir": "ceb1368175ebae30bbd39d5a1bdac9c680762dd8c235596848f5a132318b17bb",
+      "custody-probe/zkir/withdraw.bzkir": "1e58b500bcaf1b734f060ec7657d9de80a100b8651b609207c937964f11907f1",
+      "custody-probe/zkir/withdraw.zkir": "840c407ca388e9ce1e3ae60a79d7874365dd81a04ccf0e20469a07ea9060b825",
+      "separated-asset/contract/index.js": "3a12af8637217169f596e937aa9eea6e6215810ff5145c6b21b0dbd4fd8bc3eb",
+      "separated-asset/keys/seed.prover": "8c9bc261aba9eb02879ae4a210eb83af4cd4e57fa776196a3526d8b2de09f74f",
+      "separated-asset/keys/seed.verifier": "aff2ce86f37d0333cfea4b88826052d98de9e0b2b5b72e35c3c3c9811ce94b05",
+      "separated-asset/zkir/seed.bzkir": "736021c2e45771a4d2a5bbc9177c5fdf081f8290735826c9399de81852e56344",
+      "separated-asset/zkir/seed.zkir": "0c4004ad5e51e0d8fb9d0da0aa47e914a897db43472bb412d129f8fbfb4f6e42",
+      "separated-pool/contract/index.js": "908c45b040ae97c89fca877a2349d8ed9d636c047c95a02e8264391779375d71",
+      "separated-pool/keys/allocateYield.prover": "920191b6951feee3eb66f612d510cf0facafaf7e841a262c448053074f7a00b6",
+      "separated-pool/keys/allocateYield.verifier": "082560f8d673a30691c79e9306bf670ddd823a4921d2d710d2a9a5d52bda69dc",
+      "separated-pool/keys/recordSeed.prover": "493c9379572c18d6b205ec04de8f9a749039460e1466c4654d0857291c34e756",
+      "separated-pool/keys/recordSeed.verifier": "ae054c7c53cb392e4193ce740af23236b3e3327e434494402612b44ff0707cdf",
+      "separated-pool/zkir/allocateYield.bzkir": "aff8dd50d1009eb5346d1867ac27a9ede68aaa65643925aed4c736afee1c4277",
+      "separated-pool/zkir/allocateYield.zkir": "823b62501d406a02d88ad435f27542976a8a3e480c5933052a6346739c4ed24a",
+      "separated-pool/zkir/recordSeed.bzkir": "bfc6d6665676b63c453b945b8abe32615474cbab84664e51595aeb74ae639cd5",
+      "separated-pool/zkir/recordSeed.zkir": "06d53fe23976c1f3baa6e1d4c0cd5d6723aaf47343ee73fb00f360bb3fe7789b"
+    },
+    "lockfileSha256": "7993339b564a4c2aec707bf266c8273d75e50a8ab8c52ff330d278531f94ade9"
+  },
+  "format": "shroudly-custody-network-journey-v1",
+  "startedAt": "2026-10-18T18:41:11.720Z",
+  "steps": [
+    {
+      "name": "wallet-sync-from-cache",
+      "elapsedMs": 75389,
+      "status": "Synchronized"
+    },
+    {
+      "name": "deploy",
+      "txHash": "9ab286f082cc547d98dd5a02fe1ae49ff0d5f0117a7a8bf9444b8af991e0e0a3",
+      "blockHash": "784cb618ea9e794f8ebe6dbd5df93dc77fde9efee4aa8fac4dd9d21641314f95",
+      "blockHeight": 3038520,
+      "elapsedMs": 31042,
+      "status": "SucceedEntirely",
+      "txBytes": 11059
+    },
+    {
+      "name": "seed",
+      "txHash": "e79003487de1ab3382f398c0e63fb376ef80562fc73a2009f2af5142eb0cb34f",
+      "blockHash": "c03561911e66a5271c1cdccef472b545880516344dfe71f228e084a85d279bee",
+      "blockHeight": 3038525,
+      "elapsedMs": 31904,
+      "status": "SucceedEntirely",
+      "txBytes": 13992,
+      "contractOutputs": 1
+    },
+    {
+      "name": "allocateYield",
+      "txHash": "9d898fa5b563bb3ae12ff19ae046c667c220f3aaef32b0bf9059fec2b798e1a8",
+      "blockHash": "70618146a4eb9dd3be2ced06d59fe2caff1ec7c4b49e01d0331031415c52b627",
+      "blockHeight": 3038531,
+      "elapsedMs": 32130,
+      "status": "SucceedEntirely"
+    },
+    {
+      "name": "withdraw",
+      "txHash": "f1668eee05bce2ea8573d9388f5cf1463d5641a9d38e75cceae4da2ff2a6103a",
+      "blockHash": "579a4105136a311afc0b7c784a5f86bdafd83bef578e37805977cb94b095c716",
+      "blockHeight": 3038537,
+      "elapsedMs": 31664,
+      "status": "SucceedEntirely",
+      "txBytes": 24258,
+      "contractOutputs": 1,
+      "contractInputs": 1
+    },
+    {
+      "name": "separated-asset-deploy",
+      "txHash": "727868735b1118803557fb0e4dae460a1cbb86c863f49eb71c5ac07f6134a0cd",
+      "blockHash": "1fdb6f19c70c7c8d2193173affc3b09b32379303a5798815e22152d0751a5ddf",
+      "blockHeight": 3038542,
+      "elapsedMs": 30876,
+      "status": "SucceedEntirely"
+    },
+    {
+      "name": "separated-asset-seed",
+      "txHash": "2799930f548910e702a9f89da7d05a932e094116586cbb6e8e8a141363e8654d",
+      "blockHash": "7d7e6c87f74c20ae17bee4b730949fc8a9d85210418af157c02a0a794092b99f",
+      "blockHeight": 3038547,
+      "elapsedMs": 29085,
+      "status": "SucceedEntirely"
+    },
+    {
+      "name": "separated-pool-deploy",
+      "txHash": "7aee848b02f28a8248469a28beb16d6d37a83c95329d961d0f102302cc4029af",
+      "blockHash": "21b15abac5b12889c070f50c66a62a304ad75ae74f657d96843d793dbe31c68a",
+      "blockHeight": 3038552,
+      "elapsedMs": 27931,
+      "status": "SucceedEntirely"
+    },
+    {
+      "name": "separated-pool-forged-claim",
+      "txHash": "18d1535989f3e240a91ddde71ba9bcd7666b02b5268ae12de8e26a416b372a50",
+      "blockHash": "be1fc161d1bd85bbf7794b0a2e5b5278c6e99e62332033e3ccace0c6601e95f5",
+      "blockHeight": 3038556,
+      "elapsedMs": 25286,
+      "status": "SucceedEntirely"
+    },
+    {
+      "name": "separated-pool-forged-randomness",
+      "txHash": "71002a316ccf03918be03e2885a4e43981e8b9f82e417bf2e9d51889a7535360",
+      "blockHash": "f05b6c848094aaa3b36a559d436b77b1b6083c22065934d344fa7c0a2c24fe43",
+      "blockHeight": 3038561,
+      "elapsedMs": 31437,
+      "status": "SucceedEntirely"
+    }
+  ],
+  "submissions": [
+    {
+      "transactionId": "00d07d40fa4186a9bb2c4389350dba9062b2c620f95fbc55119425b349e0ff1ab8",
+      "nodeFinalized": true,
+      "txBytes": 11059
+    },
+    {
+      "transactionId": "0072fd14418a786de0b82c577867749a1f72ba65e9e65dac248b247534dafc1a0e",
+      "nodeFinalized": true,
+      "txBytes": 13992
+    },
+    {
+      "transactionId": "00b173a23f7abe55d7030b9f202888f4a16d4100beca53a2797983d16c136bfe3a",
+      "nodeFinalized": true,
+      "txBytes": 8481
+    },
+    {
+      "transactionId": "008688deb7fe423024144eb210b09eb46f6e80786e7d9ec3c18cb42fe832426934",
+      "nodeFinalized": true,
+      "txBytes": 24258
+    },
+    {
+      "transactionId": "00fe805ac71230e0e69ae0c8751c6c3298d864e4b3dd40d29d92db3d05bbec6188",
+      "nodeFinalized": true,
+      "txBytes": 5976
+    },
+    {
+      "transactionId": "00c6de7e50d64aecfe068fda15d5fd622d48a022f15c8c6bc0c0971032c14dd003",
+      "nodeFinalized": true,
+      "txBytes": 13930
+    },
+    {
+      "transactionId": "00c5689f5e3ccf7f8fe197459341184779eb72c75c56d1385facd9199d9c1606bf",
+      "nodeFinalized": true,
+      "txBytes": 7478
+    },
+    {
+      "transactionId": "00ba5fcc5700d952781b07910bc117a0c4629b17a32ce3010b73a10f9287cf10c0",
+      "nodeFinalized": true,
+      "txBytes": 8221
+    },
+    {
+      "transactionId": "008100b7a93dab0a35c52a1ff0dffaba227428d3618f8cdba140e0e0301adb3014",
+      "nodeFinalized": true,
+      "txBytes": 6605
+    }
+  ],
+  "rejections": [
+    {
+      "name": "forged-draw-mismatch",
+      "rejected": true,
+      "reasonMatched": true
+    },
+    {
+      "name": "contributor-binding-mismatch",
+      "rejected": true,
+      "reasonMatched": true
+    },
+    {
+      "name": "duplicate-contributor",
+      "rejected": true,
+      "reasonMatched": true
+    },
+    {
+      "name": "unauthorized-asset-release",
+      "rejected": true,
+      "reasonMatched": true
+    },
+    {
+      "name": "principal-liability-exceeded",
+      "rejected": true,
+      "reasonMatched": true
+    },
+    {
+      "name": "repeated-yield-allocation",
+      "rejected": true,
+      "reasonMatched": true
+    }
+  ],
+  "failures": [],
+  "releaseQualified": false,
+  "funding": {
+    "nightBalance": "5000000000",
+    "dustBalance": "25000000000000000000"
+  },
+  "contractAddress": "b145d3e9983892a1bea93180a6e7c63c4a0f703acfc4a48f3d5ff529982fda29",
+  "custodyCommitments": {
+    "seed": false,
+    "withdraw": true
+  },
+  "freshIndexerReconciliation": {
+    "custodyValue": "1600000",
+    "principalLiability": "600000",
+    "prizeReserve": "999900",
+    "prizeLiability": "100",
+    "liabilitiesTotal": "1600000",
+    "reconciled": true,
+    "custodyColor": "ab305f687e614b472f603d0d8b7d0127e2b9ef544d0e1dc86197dabc76637c64",
+    "allocatedYield": "100",
+    "seeded": true,
+    "colorDerivedFromContractAddress": true
+  },
+  "walletRelease": {
+    "shieldedColorBalances": {
+      "7ab6c68f0e2da76ea3c67415363de7e9659796771f71457f90143b96bcc5231f": "400000",
+      "ab305f687e614b472f603d0d8b7d0127e2b9ef544d0e1dc86197dabc76637c64": "400000",
+      "fc8ba59bbc0de6eab86de051fb0754fe6fcf2a12232c051048e3900c0b8a0a25": "400000"
+    }
+  },
+  "separatedAssetAddress": "4e3d3db82c2d0513558338ded3637c2789867355866b3ebce0dfda241f8b41f4",
+  "separatedPoolAddress": "d2f257fbcab6ae434458b06dc184d3216051619bb08c0f2739c50d003c6b2e1f",
+  "separatedFreshIndexerView": {
+    "custodyValue": "2000000",
+    "principalLiability": "5000000",
+    "prizeReserve": "0",
+    "prizeLiability": "100",
+    "liabilitiesTotal": "5000100",
+    "reconciled": false
+  },
+  "finishedAt": "2026-10-18T18:47:06.279Z",
+  "elapsedMs": 354592,
+  "complete": false
+}
