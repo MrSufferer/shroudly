@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { readContractLedger } from './runtime-state.mjs';
 import { evidenceManifest } from './evidence-manifest.mjs';
 import { reconcileCustody, sanitizeStep } from './reconciliation.mjs';
+import { firstValueFrom, filter } from 'rxjs';
 
 // Genuine Preprod custody journey: one process syncs the protected wallet once, then
 // deploys, seeds, allocates and withdraws, and reconciles through a fresh indexer client.
@@ -36,6 +37,11 @@ const bounded = async (operation, milliseconds) => {
   finally { clearTimeout(timer); }
 };
 const bytes = (n) => new Uint8Array(32).fill(n);
+// Midnight "Manage DUST" settled predicate: a synced state alone can still hold the DUST
+// coin spent by the previous transaction (node rejection 170, InvalidDustSpendProof).
+const settled = (state) => state.isSynced && state.pending.all.length === 0 &&
+  state.unshielded.pendingCoins.length === 0 && state.dust.pendingCoins.length === 0 && state.dust.availableCoins.length > 0;
+const settledState = (wallet) => bounded(firstValueFrom(wallet.state().pipe(filter(settled))), 900000);
 
 async function worker(envPath) {
   const send = (message) => process.send?.(message);
@@ -45,7 +51,7 @@ async function worker(envPath) {
       try { mkdirSync(LOCK); break; } catch (error) { if (error.code !== 'EEXIST') throw error; await sleep(5000); }
     }
     lockHeld = true; send({ lock: 'held' });
-    try { opened.state = await opened.wallet.waitForSyncedState(); return await fn(); }
+    try { opened.state = await settledState(opened.wallet); return await fn(); }
     finally { try { rmdirSync(LOCK); } catch { /* already released */ } lockHeld = false; send({ lock: 'released' }); }
   };
   const step = async (name, fn) => {
@@ -54,12 +60,12 @@ async function worker(envPath) {
     catch (error) { send({ failure: { step: name, category: failureCategory(error) } }); if (error?.code === 'OUTCOME_UNKNOWN') throw error; return { ok: false }; }
   };
 
-  const [{ openProtectedWallet }, sdk, ledger, contracts, indexer, zkModule, proofModule, privateModule, compactJs, nodeModule, deployScript] = await Promise.all([
+  const [{ openProtectedWallet }, sdk, ledger, contracts, indexer, zkModule, proofModule, privateModule, compactJs, deployScript] = await Promise.all([
     import('./protected-wallet.mjs'), import('@midnight-ntwrk/wallet-sdk'), import('@midnight-ntwrk/ledger-v8'),
     import('@midnight-ntwrk/midnight-js-contracts'), import('@midnight-ntwrk/midnight-js-indexer-public-data-provider'),
     import('@midnight-ntwrk/midnight-js-node-zk-config-provider'), import('@midnight-ntwrk/midnight-js-http-client-proof-provider'),
     import('@midnight-ntwrk/midnight-js-level-private-state-provider'), import('@midnight-ntwrk/midnight-js-protocol/compact-js'),
-    import('@midnight-ntwrk/wallet-sdk/node-client'), import('../../../scripts/midnight-deploy-preprod.mjs')
+    import('../../../scripts/midnight-deploy-preprod.mjs')
   ]);
   const { Contract, ledger: readLedger } = await import('../../managed/custody-probe/contract/index.js');
   (await import('@midnight-ntwrk/midnight-js-network-id')).setNetworkId('preprod');
@@ -83,14 +89,12 @@ async function worker(envPath) {
     send({ funding: { nightBalance: sum(opened.state.unshielded.balances).toString(), dustBalance: dustNow().toString() } });
 
     // Providers (token-free loopback routes owned by the protected wallet module).
-    const rpc = opened.configuration.relayURL;
     const { indexerHttpUrl: http, indexerWsUrl: ws } = opened.configuration.indexerClientConnection;
-    const node = await nodeModule.PolkadotNodeClient.init({ nodeURL: new URL(rpc) });
     const midnightProvider = { submitTx: async (finalized) => {
       const id = deployScript.finalizedTransactionId(finalized);
       send({ submitted: { txHash: id, at: new Date().toISOString() } });
-      const submitted = await bounded(node.sendMidnightTransactionAndWait(finalized.serialize(), 'Finalized'), 180000);
-      if (submitted?._tag && submitted._tag !== 'Finalized') throw Error('not finalized');
+      // The facade tracks the pending spend, waits for Finalized and reverts wallet state on failure.
+      await bounded(opened.wallet.submitTransaction(finalized), 180000);
       send({ nodeFinalized: { txHash: id } });
       return id;
     } };
@@ -164,11 +168,10 @@ async function worker(envPath) {
     };
     const publicOf = (finalized) => ({ txHash: finalized.public.txHash, blockHeight: Number(finalized.public.blockHeight), blockHash: finalized.public.blockHash, status: String(finalized.public.status) });
     const submitCall = (address, circuitId, args = [], target = probe) => withLock(opened, async () => {
-      const dustBefore = (await opened.wallet.waitForSyncedState()).dust.balance(new Date());
+      const dustBefore = opened.state.dust.balance(new Date());
       const started = Date.now();
       const result = await contracts.submitCallTx(target.providers, { compiledContract: target.compiledContract, contractAddress: address, circuitId, args, privateStateId: target.tag });
-      const state = await opened.wallet.waitForSyncedState();
-      opened.state = state;
+      const state = opened.state = await settledState(opened.wallet);
       return { ...publicOf(result), elapsedMs: Date.now() - started, dustSpentApprox: (dustBefore - state.dust.balance(new Date())).toString() };
     });
     const expectRejection = async (name, address, circuitId, args, expected) => {
@@ -189,11 +192,10 @@ async function worker(envPath) {
     };
 
     const deployContract = (name, target, args = []) => withLock(opened, () => step(name, async () => {
-      const dustBefore = (await opened.wallet.waitForSyncedState()).dust.balance(new Date());
+      const dustBefore = opened.state.dust.balance(new Date());
       const started = Date.now();
       const deployed = await contracts.deployContract(target.providers, { compiledContract: target.compiledContract, args, privateStateId: target.tag, initialPrivateState: {} });
-      const state = await opened.wallet.waitForSyncedState();
-      opened.state = state;
+      const state = opened.state = await settledState(opened.wallet);
       return { address: String(deployed.deployTxData.public.contractAddress ?? deployed.address), ...publicOf(deployed.deployTxData), elapsedMs: Date.now() - started, dustSpentApprox: (dustBefore - state.dust.balance(new Date())).toString() };
     }));
 

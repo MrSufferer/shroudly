@@ -29,8 +29,11 @@ function protectedConfiguration(path) {
   const seed = read(`${env.MIDNIGHT_WALLET_SERVICE_PREFIX || 'com.shroudly.preprod.wallet.'}${env.MIDNIGHT_DEPLOYER_SECRET_NAME}`);
   if (!/^[a-fA-F0-9]{64}$/.test(seed)) throw Error('deployer seed must be 32-byte hex');
   const token=read(env.MIDNIGHT_BLOCKFROST_SECRET_NAME);
+  // A nonzero overhead keeps DUST balancing out of a non-converging loop: when Preprod fee
+  // prices sit at their floor, a small contract call costs 0, the dust wallet selects no DUST
+  // and keeps re-pricing the empty DUST intent (1 > 0) until wasm memory is exhausted.
   return {env, token, endpoints:{http,ws,rpc}, seed: Buffer.from(seed,'hex'), configuration: {
-    networkId:'preprod', costParameters:{feeBlocksMargin:5}, relayURL:new URL(rpc.replace(/^http/,'ws')),
+    networkId:'preprod', costParameters:{feeBlocksMargin:5, additionalFeeOverhead:1_000_000_000n}, relayURL:new URL(rpc.replace(/^http/,'ws')),
     provingServerUrl:prover, indexerClientConnection:{indexerHttpUrl:http,indexerWsUrl:ws},
     txHistoryStorage:new sdk.InMemoryTransactionHistoryStorage(sdk.WalletEntrySchema, sdk.mergeWalletEntries),
   }};
