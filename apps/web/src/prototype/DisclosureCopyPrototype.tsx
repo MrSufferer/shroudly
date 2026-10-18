@@ -3,11 +3,11 @@
 // with `?variant=A|B|C`. Lives on branch prototype/issue-71-disclosure-copy only.
 // Acknowledgements are in memory; nothing persists.
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { AlertTriangle, ChevronLeft, ChevronRight, EyeOff, Scale } from "lucide-react";
+import { AlertTriangle, ArrowDownToLine, ArrowRight, Check, ChevronLeft, ChevronRight, Eye, EyeOff, KeyRound, Link2, LockKeyhole, RefreshCw, Scale, Trophy, UserCog, X } from "lucide-react";
 
-const VARIANTS = ["A", "B", "C"] as const;
+const VARIANTS = ["D", "A", "B", "C"] as const;
 type Variant = (typeof VARIANTS)[number];
-const NAMES: Record<Variant, string> = { A: "Acknowledgement gate", B: "Point of action", C: "Who sees what" };
+const NAMES: Record<Variant, string> = { D: "Visual cards", A: "Acknowledgement gate", B: "Point of action", C: "Who sees what" };
 
 export type Slot = "trust-chip" | "cohort-hint" | "pre-contribute" | "contribute-detail" | "withdraw-detail" | "draw-hint" | "boundaries";
 
@@ -17,7 +17,7 @@ const COHORT_HINT = "A draw settles only with five eligible commitments. One per
 
 function readVariant(): Variant {
   const value = new URLSearchParams(window.location.search).get("variant");
-  return (VARIANTS as readonly string[]).includes(value ?? "") ? (value as Variant) : "A";
+  return (VARIANTS as readonly string[]).includes(value ?? "") ? (value as Variant) : "D";
 }
 
 export function useDisclosurePrototype(deploymentId: string) {
@@ -48,11 +48,12 @@ export function useDisclosurePrototype(deploymentId: string) {
     return () => window.removeEventListener("keydown", onKey);
   }, [go]);
 
-  const acknowledged = variant === "A" ? lineageAck && operatorAck : combinedAck;
+  const acknowledged = variant === "A" || variant === "D" ? lineageAck && operatorAck : combinedAck;
 
   const slot = (name: Slot): ReactNode => {
     if (name === "trust-chip") return <span><Scale size={14} /> {TRUST_CHIP}</span>;
     if (name === "cohort-hint") return <p>Six-decimal integer accounting · {COHORT_HINT}</p>;
+    if (variant === "D") return slotD(name, { lineageAck, setLineageAck, operatorAck, setOperatorAck });
     if (variant === "A") return slotA(name, { deploymentId, lineageAck, setLineageAck, operatorAck, setOperatorAck });
     if (variant === "B") return slotB(name, { combinedAck, setCombinedAck });
     return slotC(name, { combinedAck, setCombinedAck });
@@ -138,6 +139,70 @@ function slotC(name: Slot, s: { combinedAck: boolean; setCombinedAck: (v: boolea
   if (name === "boundaries") return <BoundariesProse />;
   return null;
 }
+
+// ── Variant D: visual cards, few words, exact wording one click away ────────────
+
+function slotD(name: Slot, s: { lineageAck: boolean; setLineageAck: (v: boolean) => void; operatorAck: boolean; setOperatorAck: (v: boolean) => void }): ReactNode {
+  if (name === "pre-contribute") return (
+    <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
+      <p style={{ margin: 0, color: "var(--cream)", font: "600 15px Fraunces, serif" }}>Before you contribute: 2 things to know</p>
+      <div style={card}>
+        <div style={cardHead}><Link2 size={18} /> Withdrawing links back to your deposit</div>
+        <div style={flow}>
+          <Node icon={<ArrowDownToLine size={16} />} label="Your deposit" />
+          <div style={link}><Eye size={13} /> anyone can see this link</div>
+          <Node icon={<RefreshCw size={16} />} label="Your withdrawal" />
+        </div>
+        <div style={chips}><Chip seen>That they're connected</Chip><Chip seen>When you act</Chip><Chip>How much</Chip><Chip>Your balance</Chip></div>
+        <Ack checked={s.lineageAck} onChange={s.setLineageAck}>Got it: withdrawing links back to my deposit.</Ack>
+      </div>
+      <div style={card}>
+        <div style={cardHead}><UserCog size={18} /> The Operator picks the winner</div>
+        <div style={flow}>
+          <Node icon={<LockKeyhole size={16} />} label="Your weight" sub="hidden from the public" />
+          <ArrowRight size={16} color="var(--muted)" />
+          <Node icon={<Eye size={16} />} label="Operator sees it" sub="and computes the pick" warn />
+          <ArrowRight size={16} color="var(--muted)" />
+          <Node icon={<Trophy size={16} />} label="Winner" />
+        </div>
+        <div style={chips}>
+          <Chip ok>Contract checks the randomness</Chip><Chip ok>Contract checks your claim</Chip>
+          <Chip bad>No one checks the pick was fair</Chip><Chip bad><KeyRound size={11} /> One person holds all 3 randomness keys</Chip>
+        </div>
+        <Ack checked={s.operatorAck} onChange={s.setOperatorAck}>Got it: I'm trusting the Operator, who sees my weight and balance.</Ack>
+      </div>
+      <details style={{ color: "var(--muted)", fontSize: 11, lineHeight: 1.6 }}>
+        <summary style={{ cursor: "pointer", color: "var(--aqua)" }}>Read the exact wording</summary>
+        <p>A withdrawal publicly retires the note you withdraw from, by its leaf index or nullifier. Anyone reading the public ledger can connect that withdrawal to the contribution that created the note and to every earlier action in the same note's history. Your amounts and balance stay private.</p>
+        <p>Until an unattended selection method qualifies, the Shroudly maintainer, acting as Operator, reads the weight and balance of every commitment and computes the weighted winner from the contract's combined randomness. The contract enforces the randomness threshold, records the Winning Commitment and checks your private claim, but it cannot confirm the pick was fair. The same maintainer holds all three randomness keys, so neither the randomness nor the selection is independent.</p>
+      </details>
+    </div>
+  );
+  if (name === "contribute-detail") return s.lineageAck && s.operatorAck ? "Principal custody and TWAB start immediately" : "Tick both \"Got it\" boxes above first";
+  if (name === "withdraw-detail") return "👁 Publicly links back to your deposit";
+  if (name === "draw-hint") return "👁 Winner picked by the Operator · 2-of-3 reveals, one person holds all keys";
+  if (name === "boundaries") return <BoundariesProse />;
+  return null;
+}
+
+function Node({ icon, label, sub, warn }: { icon: ReactNode; label: string; sub?: string; warn?: boolean }) {
+  return <div style={{ display: "grid", justifyItems: "center", gap: 4, minWidth: 92, textAlign: "center" }}>
+    <span style={{ display: "grid", placeItems: "center", width: 38, height: 38, borderRadius: 12, background: warn ? "rgba(255,190,120,.14)" : "rgba(155,140,255,.14)", color: warn ? "#ffbe78" : "var(--violet)" }}>{icon}</span>
+    <strong style={{ fontSize: 11, color: "var(--cream)" }}>{label}</strong>{sub && <small style={{ fontSize: 9.5, color: "var(--muted)" }}>{sub}</small>}
+  </div>;
+}
+function Chip({ children, seen, ok, bad }: { children: ReactNode; seen?: boolean; ok?: boolean; bad?: boolean }) {
+  const [icon, color] = bad ? [<X size={11} />, "#ff9b8a"] : ok ? [<Check size={11} />, "var(--aqua)"] : seen ? [<Eye size={11} />, "#ffbe78"] : [<LockKeyhole size={11} />, "var(--aqua)"];
+  return <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 9px", borderRadius: 999, fontSize: 10.5, color, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)" }}>{icon}{!ok && !bad && <b style={{ fontWeight: 600 }}>{seen ? "Public:" : "Private:"}</b>} {children}</span>;
+}
+function Ack({ checked, onChange, children }: { checked: boolean; onChange: (v: boolean) => void; children: ReactNode }) {
+  return <label style={{ ...check, fontSize: 11.5, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,.07)" }}><input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} /> {children}</label>;
+}
+const card = { display: "grid", gap: 12, padding: 16, borderRadius: 14, border: "1px solid rgba(255,190,120,.25)", background: "rgba(255,190,120,.04)" } as const;
+const cardHead = { display: "flex", alignItems: "center", gap: 8, color: "var(--cream)", fontWeight: 600, fontSize: 14 } as const;
+const flow = { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap", padding: "6px 0" } as const;
+const link = { flex: "1 1 120px", maxWidth: 220, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "4px 0", borderTop: "2px dashed #ffbe78", color: "#ffbe78", fontSize: 10.5 } as const;
+const chips = { display: "flex", flexWrap: "wrap", gap: 6 } as const;
 
 // Replaces "Know the test boundaries" in every variant.
 function BoundariesProse() {
