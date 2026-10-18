@@ -21,8 +21,11 @@
     "witnessStateSurvived": true
   },
   "quotaFailure": {
-    "failedAt": "initialize",
-    "submitted": 0
+    "failedAt": "prepare",
+    "error": "QuotaExceededError",
+    "submitted": 0,
+    "unresolved": 0,
+    "round": 0
   },
-  "checkedAt": "2026-10-17T09:12:18.714Z"
+  "checkedAt": "2026-10-18T07:55:22.783Z"
 }

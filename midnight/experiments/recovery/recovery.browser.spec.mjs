@@ -130,27 +130,47 @@ test('an abrupt browser kill after prepare preserves the encrypted journal and w
   }finally{rmSync(dir,{recursive:true,force:true});}
 });
 
-test('storage write failure (quota) blocks preparation so nothing can be submitted', async({browser})=>{
-  const context=await browser.newContext();
-  const page=await openPage(context);
-  const cdp=await context.newCDPSession(page);
-  await cdp.send('Storage.overrideQuotaForOrigin',{origin:server.url,quotaSize:1});
-  const outcome=await page.evaluate(async({scope})=>{
-    const r=window.recovery;
-    const writer=await r.acquireWriter({locks:navigator.locks,scope});
-    const journal=await r.openJournal({store:await r.idbStore({indexedDB,name:'quota'}),scope,key:await r.sessionKeyFromKit('0x'+'09'.repeat(32)),writer});
-    let submitted=0;
-    const executor={
-      build:async state=>({base:{round:0n,commitment:'0x00'},expected:{round:1n,commitment:'0x01'},nextPrivateState:{...state,round:1n},payload:'x'.repeat(5_000_000)}),
-      submit:async()=>{submitted+=1;return '0x'+'a'.repeat(64);},
-      observe:async()=>null,queryLedger:async()=>({round:0n,commitment:'0x00'}),
-    };
-    try{await journal.initialize({secret:new Uint8Array(32).fill(7),round:0n});}catch(error){return {failedAt:'initialize',submitted,message:String(error.message)};}
-    try{await r.runAction({journal,executor,actionId:'a1',pollMs:0,maxPolls:1});}catch(error){return {failedAt:'run',submitted,message:String(error.message)};}
-    return {failedAt:null,submitted};
-  },{scope:SCOPE});
-  results.quotaFailure={...outcome,message:undefined};
-  expect(outcome.failedAt).not.toBeNull();
-  expect(outcome.submitted).toBe(0);
-  await context.close();
+test('storage write failure (quota) at prepare blocks the action so nothing is submitted', async()=>{
+  // Chrome applies a quota override only before the origin first opens IndexedDB in
+  // a browser session, so state is initialized in one session and the action runs in
+  // a relaunched session of the same profile with quota 1 set before any access.
+  const dir=mkdtempSync(join(tmpdir(),'shroudly-recovery-quota-'));
+  const kitKey='0x'+'09'.repeat(32);
+  try{
+    let raw=await launchRawChrome(dir);
+    let page=await openPage(raw.browser.contexts()[0]);
+    await page.evaluate(async({kitKey,scope})=>{
+      const r=window.recovery;
+      const writer=await r.acquireWriter({locks:navigator.locks,scope});
+      const journal=await r.openJournal({store:await r.idbStore({indexedDB,name:'quota'}),scope,key:await r.sessionKeyFromKit(kitKey),writer});
+      await journal.initialize({secret:new Uint8Array(32).fill(7),round:0n});
+    },{kitKey,scope:SCOPE});
+    await raw.browser.close().catch(()=>{});raw.child.kill('SIGTERM');
+    await sleep(500);
+    rmSync(join(dir,'SingletonLock'),{force:true});rmSync(join(dir,'DevToolsActivePort'),{force:true});
+    raw=await launchRawChrome(dir);
+    const context=raw.browser.contexts()[0];
+    page=await context.newPage();
+    const cdp=await context.newCDPSession(page);
+    await cdp.send('Storage.overrideQuotaForOrigin',{origin:server.url,quotaSize:1});
+    await page.goto(server.url);
+    await page.waitForFunction(()=>window.recoveryReady===true);
+    const outcome=await page.evaluate(async({kitKey,scope})=>{
+      const r=window.recovery;
+      const writer=await r.acquireWriter({locks:navigator.locks,scope});
+      const journal=await r.openJournal({store:await r.idbStore({indexedDB,name:'quota'}),scope,key:await r.sessionKeyFromKit(kitKey),writer});
+      let submitted=0;
+      const executor={
+        build:async state=>({base:{round:0n,commitment:'0x00'},expected:{round:1n,commitment:'0x01'},nextPrivateState:{...state,round:1n},payload:'x'.repeat(1_000_000)}),
+        submit:async()=>{submitted+=1;return '0x'+'a'.repeat(64);},
+        observe:async()=>null,queryLedger:async()=>({round:0n,commitment:'0x00'}),
+      };
+      let failedAt=null,error=null;
+      try{await r.runAction({journal,executor,actionId:'a1',pollMs:0,maxPolls:1});}catch(e){failedAt='prepare';error=String(e.message).match(/QuotaExceededError/)?.[0]??'other';}
+      return {failedAt,error,submitted,unresolved:(await journal.unresolved()).length,round:Number(journal.current().privateState.round)};
+    },{kitKey,scope:SCOPE});
+    results.quotaFailure=outcome;
+    expect(outcome).toEqual({failedAt:'prepare',error:'QuotaExceededError',submitted:0,unresolved:0,round:0});
+    raw.child.kill('SIGKILL');
+  }finally{rmSync(dir,{recursive:true,force:true});}
 });
