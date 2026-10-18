@@ -47,6 +47,7 @@ const PINNED = {
   compactCli: "0.5.2",
   compactCompiler: "0.31.1",
   compactLanguage: "0.23.0",
+  proofServer: "8.1.3",
   network: PREPROD,
 };
 const PUBLIC_ENV = {
@@ -595,6 +596,28 @@ export function keychainValue(
   return value;
 }
 
+/**
+ * Attach the operator chain data provider token to a Blockfrost URL. Call
+ * this after any WebSocket URL is derived so the token never lands in a
+ * derived path, and only for the operator account: the public account belongs
+ * to the Chain Data Proxy. Non-Blockfrost URLs (local nodes, test servers)
+ * pass through unchanged.
+ */
+export function withProviderToken(url, env = process.env, { reader = keychainCommand } = {}) {
+  if (!url) return url;
+  const parsed = new URL(url);
+  if (!/(^|\.)blockfrost\.io$/i.test(parsed.hostname)) return url;
+  const service = env.MIDNIGHT_BLOCKFROST_SECRET_NAME;
+  const account = env.MIDNIGHT_KEYCHAIN_ACCOUNT || "shroudly-preprod";
+  if (!service) throw new Error("MIDNIGHT_BLOCKFROST_SECRET_NAME must name the operator Blockfrost Keychain entry");
+  const result = reader(["find-generic-password", "-a", account, "-s", service, "-w"]);
+  const token = result.status === 0 ? result.stdout.trim() : "";
+  if (!/^[A-Za-z0-9._-]{1,512}$/.test(token)) throw new Error("operator Blockfrost Keychain entry is missing or malformed");
+  REDACTIONS.add(token);
+  parsed.searchParams.set("project_id", token);
+  return parsed.toString();
+}
+
 export function getAuthorities(env = process.env) {
   const account = env.MIDNIGHT_KEYCHAIN_ACCOUNT || "shroudly-preprod";
   const prefix = env.MIDNIGHT_AUTHORITY_SERVICE_PREFIX || "com.shroudly.preprod.authority.";
@@ -962,8 +985,8 @@ async function createDefaultNodeProvider(env, resources, timeoutMs = DEFAULT_TIM
   // The pinned wallet-sdk barrel owns the node-client dependency in pnpm's
   // layout; importing through the barrel also keeps the SDK version aligned.
   const nodeModule = await import("@midnight-ntwrk/wallet-sdk/node-client");
-  const rpcUrl = env.MIDNIGHT_RPC_URL || "wss://rpc.preprod.midnight.network";
-  const node = await nodeModule.PolkadotNodeClient.init({ nodeURL: new URL(rpcUrl) });
+  const rpcUrl = env.MIDNIGHT_RPC_URL || "wss://rpc.midnight-preprod.blockfrost.io";
+  const node = await nodeModule.PolkadotNodeClient.init({ nodeURL: new URL(withProviderToken(rpcUrl, env)) });
   resources.push(node);
   return {
     submitTx: async (finalizedTx) => {
@@ -1040,10 +1063,11 @@ export async function createProtectedAssembly({
 
     const profileNetwork = typeof profile.network === "object" ? profile.network : {};
     const indexerHttpUrl = env.MIDNIGHT_INDEXER_HTTP_URL || profileNetwork.indexerGraphql;
-    const indexerWsUrl = env.MIDNIGHT_INDEXER_WS_URL || deriveIndexerWs(indexerHttpUrl);
+    const indexerWsUrl = env.MIDNIGHT_INDEXER_WS_URL || profileNetwork.indexerWs || deriveIndexerWs(indexerHttpUrl);
     if (!publicDataProvider) {
       const indexer = await import("@midnight-ntwrk/midnight-js-indexer-public-data-provider");
-      publicDataProvider = indexer.indexerPublicDataProvider(indexerHttpUrl, indexerWsUrl);
+      // midnight-js 4.1.1 has no header option; Blockfrost reads project_id from the query.
+      publicDataProvider = indexer.indexerPublicDataProvider(withProviderToken(indexerHttpUrl, env), withProviderToken(indexerWsUrl, env));
       track(publicDataProvider);
     }
 
@@ -1707,11 +1731,17 @@ export async function runCheck({
   const profileNetwork = typeof profile?.network === "object" ? profile.network : {};
   const indexerUrl = env.MIDNIGHT_INDEXER_HTTP_URL || profileNetwork.indexerGraphql;
   const proofUrl = env.MIDNIGHT_PROOF_SERVER_URL || "http://127.0.0.1:6300";
-  checks.push(checkResult("indexer", await endpointChecker(indexerUrl, { method: "POST", timeoutMs })));
+  let authenticatedIndexerUrl = indexerUrl;
+  try {
+    authenticatedIndexerUrl = withProviderToken(indexerUrl, env);
+  } catch (error) {
+    checks.push(checkResult("chain-data-token", { ok: false, message: error.message }));
+  }
+  checks.push(checkResult("indexer", await endpointChecker(authenticatedIndexerUrl, { method: "POST", timeoutMs })));
   checks.push(checkResult("proof-server", await endpointChecker(proofUrl, { timeoutMs })));
   checks.push(checkResult("indexer-websocket", {
-    ok: Boolean(env.MIDNIGHT_INDEXER_WS_URL || deriveIndexerWs(indexerUrl)),
-    message: env.MIDNIGHT_INDEXER_WS_URL || deriveIndexerWs(indexerUrl) || "endpoint is not configured",
+    ok: Boolean(env.MIDNIGHT_INDEXER_WS_URL || profileNetwork.indexerWs || deriveIndexerWs(indexerUrl)),
+    message: env.MIDNIGHT_INDEXER_WS_URL || profileNetwork.indexerWs || deriveIndexerWs(indexerUrl) || "endpoint is not configured",
   }));
 
   const storagePath = privateStatePath || rootForAssembly(

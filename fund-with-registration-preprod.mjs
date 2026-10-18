@@ -31,8 +31,10 @@ const inspectOffer = process.argv.includes('--inspect');
 const keychainAccount = 'shroudly-preprod';
 const keychainServicePrefix = 'com.shroudly.preprod.wallet.';
 const keychainPath = '/Users/kyler/Library/Keychains/login.keychain-db';
-const provingServerUrl = 'https://lace-proof-pub.preprod.midnight.network';
-const nodeUrl = 'wss://rpc.preprod.midnight.network';
+// The hosted Lace proof server is shut down; prove against the local 8.1.3 server.
+const provingServerUrl = process.env.MIDNIGHT_PROOF_SERVER_URL || 'http://127.0.0.1:6300';
+const blockfrostAccount = process.env.MIDNIGHT_KEYCHAIN_ACCOUNT || keychainAccount;
+const blockfrostService = process.env.MIDNIGHT_BLOCKFROST_SECRET_NAME;
 const recipients = [
   {
     label: 'emergency',
@@ -68,6 +70,19 @@ const readSeed = (label) => {
   if (!/^[0-9a-f]{64}$/i.test(seed)) throw new Error(`Invalid protected seed for ${label}.`);
   return seed;
 };
+
+// Operator-account Blockfrost project ID, attached as a query parameter after
+// every path (including /ws) is final. It never comes from argv or a file.
+const withProviderToken = (url) => {
+  if (!blockfrostService) throw new Error('MIDNIGHT_BLOCKFROST_SECRET_NAME must name the operator Blockfrost Keychain entry.');
+  const result = security(['find-generic-password', '-a', blockfrostAccount, '-s', blockfrostService, '-w']);
+  const token = result.status === 0 ? result.stdout.trim() : '';
+  if (!/^[A-Za-z0-9._-]{1,512}$/.test(token)) throw new Error('Operator Blockfrost Keychain entry is missing or malformed.');
+  const parsed = new URL(url);
+  parsed.searchParams.set('project_id', token);
+  return parsed.toString();
+};
+const nodeUrl = withProviderToken('wss://rpc.midnight-preprod.blockfrost.io');
 
 const derive = (label) => {
   const result = HDWallet.fromSeed(Buffer.from(readSeed(label), 'hex'));
@@ -199,8 +214,8 @@ const configuration = {
   batchUpdates: { size: 1000, timeout: 50, spacing: 0 },
   costParameters: { feeBlocksMargin: 5 },
   indexerClientConnection: {
-    indexerWsUrl: 'wss://indexer.preprod.midnight.network/api/v4/graphql/ws',
-    indexerHttpUrl: 'https://indexer.preprod.midnight.network/api/v4/graphql',
+    indexerWsUrl: withProviderToken('wss://midnight-preprod.blockfrost.io/api/v0/ws'),
+    indexerHttpUrl: withProviderToken('https://midnight-preprod.blockfrost.io/api/v0'),
   },
   txHistoryStorage: new InMemoryTransactionHistoryStorage(),
 };

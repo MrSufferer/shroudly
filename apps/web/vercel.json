@@ -7,7 +7,7 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; connect-src 'self' https://*.midnight.network https://*.vercel.app; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; connect-src 'self' https://*.onrender.com https://midnight-preprod.blockfrost.io wss://midnight-preprod.blockfrost.io https://rpc.midnight-preprod.blockfrost.io wss://rpc.midnight-preprod.blockfrost.io https://*.vercel.app; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" },
         { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
         { "key": "Cross-Origin-Embedder-Policy", "value": "require-corp" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },

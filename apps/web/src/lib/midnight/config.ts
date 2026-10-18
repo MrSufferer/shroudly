@@ -13,13 +13,28 @@ export const MIDNIGHT_CONTRACT_IDS: ShroudlyContractIds = Object.freeze({
   pool: import.meta.env.VITE_SHROUDLY_POOL_CONTRACT_ID ?? "unassigned",
 });
 
+export function browserChainEndpoint(name: string, value: string): string {
+  let parsed: URL;
+  try { parsed = new URL(value); } catch { return value; }
+  if (/(^|\.)blockfrost\.io$/i.test(parsed.hostname) || parsed.searchParams.has("project_id")) {
+    throw new Error(`${name} must be a Chain Data Proxy route, never a Blockfrost URL or project_id`);
+  }
+  return value;
+}
+
 export const MIDNIGHT_NETWORK_CONFIG = Object.freeze({
   environment: SHROUDLY_ENVIRONMENT,
   network: SHROUDLY_NETWORK_ID,
   deploymentId: import.meta.env.VITE_SHROUDLY_DEPLOYMENT_ID ?? "shroudly-preprod-unassigned",
   contractIds: MIDNIGHT_CONTRACT_IDS,
-  rpcUrl: import.meta.env.VITE_SHROUDLY_RPC_URL ?? "https://rpc.preprod.midnight.network",
-  indexerGraphqlUrl: import.meta.env.VITE_SHROUDLY_INDEXER_URL ?? "https://indexer.preprod.midnight.network/api/v4/graphql",
+  // Chain Data Proxy routes. The provider token stays on the proxy, so these
+  // must never be Blockfrost URLs or carry a project_id. The reserved .invalid
+  // defaults keep module load valid while failing closed until deployed.
+  rpcUrl: browserChainEndpoint("VITE_SHROUDLY_RPC_URL", import.meta.env.VITE_SHROUDLY_RPC_URL ?? "https://chain-data-proxy.invalid/rpc"),
+  indexerGraphqlUrl: browserChainEndpoint("VITE_SHROUDLY_INDEXER_URL", import.meta.env.VITE_SHROUDLY_INDEXER_URL ?? "https://chain-data-proxy.invalid/indexer"),
+  // After connect, participant reads use the wallet's getConfiguration()
+  // endpoints and fall back to the proxy only when those fail or are not HTTPS.
+  participantReads: "wallet-configuration-first" as const,
   zkConfigUrl: import.meta.env.VITE_SHROUDLY_ZK_CONFIG_URL ?? "",
   sponsorUrl: import.meta.env.VITE_SHROUDLY_SPONSOR_URL ?? "",
   proofMode: "local" as const,
@@ -35,9 +50,11 @@ export const MIDNIGHT_VERSION_PROFILE = Object.freeze({
   midnightJs: "4.1.1",
   dappConnector: "4.0.1",
   walletSdk: "1.2.0",
-  node: "1.0.2",
-  indexer: "4.3.3-hotfix",
-  proofServer: "8.1.0",
+  node: "1.0.400",
+  indexer: "4.3.302",
+  proofServer: "8.1.3",
+  onchainRuntime: "3.0.0",
+  ledgerTarget: "ledger-8.0.2",
 });
 
 // This is deliberately null until the human qualification run has been
@@ -48,7 +65,7 @@ export const MIDNIGHT_QUALIFICATION_VERIFIER_FINGERPRINT: string | null = null;
 export const MIDNIGHT_PROVIDER_STATUS = [
   ["Private state", "Encrypted locally with Recovery Kit"],
   ["Proofs", "Wallet-bound proving (release binding required)"],
-  ["Public data", "Indexer plus fresh ledger confirmation"],
+  ["Public data", "Wallet-supplied indexer, Chain Data Proxy fallback, plus fresh ledger confirmation"],
   ["DUST", "Explicit sponsorship approval"],
 ] as const;
 

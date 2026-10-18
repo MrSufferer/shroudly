@@ -1,14 +1,22 @@
 import { describe, expect, test } from "vitest";
+import { browserChainEndpoint } from "./config";
 import { MemoryPrivateStateStore } from "./private-state";
 import { createConfiguredOfficialProviders, createGraphqlPublicDataProvider, createJsonRpcProvider, createJsonZkConfigProvider, createMidnightProviderBoundaries, createPollingFinalityObserver, createWalletProofProvider } from "./providers";
 
 const baseConfig = {
   network: "preprod" as const,
-  rpcUrl: "https://rpc.preprod.midnight.network",
-  indexerGraphqlUrl: "https://indexer.preprod.midnight.network/api/v4/graphql",
+  rpcUrl: "https://chain-data-proxy.test/rpc",
+  indexerGraphqlUrl: "https://chain-data-proxy.test/indexer",
 };
 
 describe("Midnight provider boundaries", () => {
+  test("keeps the chain data provider token out of browser endpoints", () => {
+    expect(browserChainEndpoint("VITE_SHROUDLY_INDEXER_URL", baseConfig.indexerGraphqlUrl)).toBe(baseConfig.indexerGraphqlUrl);
+    expect(() => browserChainEndpoint("VITE_SHROUDLY_INDEXER_URL", "https://midnight-preprod.blockfrost.io/api/v0")).toThrow("Chain Data Proxy route");
+    expect(() => browserChainEndpoint("VITE_SHROUDLY_RPC_URL", "https://rpc.midnight-preprod.blockfrost.io")).toThrow("Chain Data Proxy route");
+    expect(() => browserChainEndpoint("VITE_SHROUDLY_RPC_URL", "https://chain-data-proxy.test/rpc?project_id=x")).toThrow("Chain Data Proxy route");
+  });
+
   test("defaults to local proving and keeps disconnected adapters explicit", async () => {
     const boundaries = createMidnightProviderBoundaries(baseConfig, {
       privateState: new MemoryPrivateStateStore<unknown>(),
@@ -65,7 +73,7 @@ describe("Midnight provider boundaries", () => {
 
   test("loads pinned ZK configuration over HTTPS", async () => {
     const requests: RequestInit[] = [];
-    const zk = createJsonZkConfigProvider("https://zk.preprod.midnight.network/config.json", {
+    const zk = createJsonZkConfigProvider("https://web.shroudly.test/zk/config.json", {
       fetch: async (_input, init) => { requests.push(init ?? {}); return new Response(JSON.stringify({ contract: "pool", revision: "pinned" }), { status: 200 }); },
     });
     await expect(zk.load()).resolves.toEqual({ contract: "pool", revision: "pinned" });
@@ -77,12 +85,12 @@ describe("Midnight provider boundaries", () => {
     const composition = createConfiguredOfficialProviders({
       rpcUrl: baseConfig.rpcUrl,
       indexerGraphqlUrl: baseConfig.indexerGraphqlUrl,
-      zkConfigUrl: "https://zk.preprod.midnight.network/config.json",
+      zkConfigUrl: "https://web.shroudly.test/zk/config.json",
     });
     expect(composition.network).toBe("preprod");
     expect(composition.publicData).toMatchObject({ kind: "indexer", endpointUrl: baseConfig.indexerGraphqlUrl });
     expect(composition.rpc).toMatchObject({ endpointUrl: baseConfig.rpcUrl });
-    expect(composition.zkConfig).toMatchObject({ endpointUrl: "https://zk.preprod.midnight.network/config.json" });
+    expect(composition.zkConfig).toMatchObject({ endpointUrl: "https://web.shroudly.test/zk/config.json" });
   });
 
   test("requires all three independent finality observations", async () => {

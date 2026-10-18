@@ -55,8 +55,10 @@ const profile = {
   },
   artifactHashes,
   endpoints: {
-    rpc: env.VITE_SHROUDLY_RPC_URL || "https://rpc.preprod.midnight.network",
-    indexer: env.VITE_SHROUDLY_INDEXER_URL || "https://indexer.preprod.midnight.network/api/v4/graphql",
+    // Browser endpoints are Chain Data Proxy routes. The reserved .invalid
+    // defaults fail closed until a deployment names the real proxy.
+    rpc: env.VITE_SHROUDLY_RPC_URL || "https://chain-data-proxy.invalid/rpc",
+    indexer: env.VITE_SHROUDLY_INDEXER_URL || "https://chain-data-proxy.invalid/indexer",
     zkConfig: env.VITE_SHROUDLY_ZK_CONFIG_URL || "",
     sponsor: env.VITE_SHROUDLY_SPONSOR_URL || "",
   },
@@ -71,13 +73,18 @@ const profile = {
     node: versionProfile.node,
     indexer: versionProfile.indexer,
     proofServer: versionProfile.proofServer,
+    onchainRuntime: versionProfile.onchainRuntime,
+    ledger: versionProfile.ledger,
   },
+  chainDataProvider: versionProfile.network.provider,
+  browserReads: versionProfile.network.browserReads,
   constants,
   governance: "two-of-three-preprod",
   qualificationVerifierFingerprint: versionProfile.qualificationVerifierFingerprint ?? null,
   deployerDeadlineSeconds: "86400",
   mainnetTransactionsEnabled: false,
 };
+for (const [name, value] of Object.entries(profile.endpoints)) assertBrowserEndpoint(`${name} endpoint`, value);
 if (releaseBuild) validateReleaseProfile(profile, configuredArtifactHashes);
 profile.snapshotHash = `0x${createHash("sha256").update(JSON.stringify(profile)).digest("hex")}`;
 mkdirSync(dirname(output), { recursive: true });
@@ -85,6 +92,15 @@ writeFileSync(output, `${JSON.stringify(profile, null, 2)}\n`, { mode: 0o644 });
 console.log(`Wrote sanitized Shroudly build profile to ${output.replace(`${root}/`, "")}`);
 
 function envFlag(name) { return env[name] === "1"; }
+
+function assertBrowserEndpoint(label, value) {
+  if (!value) return;
+  let parsed;
+  try { parsed = new URL(value); } catch { return; }
+  if (/(^|\.)blockfrost\.io$/i.test(parsed.hostname) || parsed.searchParams.has("project_id")) {
+    throw new Error(`${label} must be a Chain Data Proxy route, never a Blockfrost URL or project_id`);
+  }
+}
 
 function validateReleaseProfile(candidate, configuredHashes) {
   if (!candidate.deploymentId || candidate.deploymentId === "shroudly-preprod-unassigned") throw new Error("release build requires an immutable Shroudly deployment ID");
@@ -94,6 +110,7 @@ function validateReleaseProfile(candidate, configuredHashes) {
   for (const [name, value] of Object.entries(candidate.endpoints)) {
     if (!value) throw new Error(`release build requires a ${name} endpoint`);
     assertHttpsEndpoint(`${name} endpoint`, value);
+    if (new URL(value).hostname.endsWith(".invalid")) throw new Error(`release build requires a deployed ${name} endpoint, not the placeholder`);
   }
   if (configuredHashes.length !== sourceNames.length || configuredHashes.some((value) => !/^0x[0-9a-fA-F]{64}$/.test(value))) {
     throw new Error("release build requires all four explicitly configured Compact artifact hashes");

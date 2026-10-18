@@ -17,6 +17,7 @@ import {
   runCheck,
   runDeployment,
   validateReceipt,
+  withProviderToken,
   withTimeout,
 } from "./midnight-deploy-preprod.mjs";
 
@@ -25,6 +26,7 @@ const PROFILE = {
   network: { name: "preprod" },
   compactCli: "0.5.2",
   compactCompiler: "0.31.1",
+  proofServer: "8.1.3",
   compactLanguage: "0.23.0",
   compactRuntime: "0.16.0",
   midnightJs: "4.1.1",
@@ -376,4 +378,19 @@ test("receipt validation rejects format 1 and synthetic transaction flags", () =
     transactions: [{ id: "tx", status: "SucceedEntirely", success: true }],
   };
   assert.throws(() => validateReceipt(synthetic, { profile: PROFILE, artifacts: MANIFEST.artifacts }), /genuine finalized public evidence|missing for/);
+});
+
+test("attaches the operator Blockfrost token only to Blockfrost URLs after the WebSocket path is derived", () => {
+  const env = { MIDNIGHT_BLOCKFROST_SECRET_NAME: "com.shroudly.preprod.blockfrost", MIDNIGHT_KEYCHAIN_ACCOUNT: "shroudly-preprod" };
+  const calls = [];
+  const reader = (args) => { calls.push(args); return { status: 0, stdout: "operatorToken123\n" }; };
+  assert.equal(
+    withProviderToken("wss://midnight-preprod.blockfrost.io/api/v0/ws", env, { reader }),
+    "wss://midnight-preprod.blockfrost.io/api/v0/ws?project_id=operatorToken123",
+  );
+  assert.deepEqual(calls[0], ["find-generic-password", "-a", "shroudly-preprod", "-s", "com.shroudly.preprod.blockfrost", "-w"]);
+  assert.equal(withProviderToken("http://127.0.0.1:8088/api/v4/graphql", env, { reader }), "http://127.0.0.1:8088/api/v4/graphql");
+  assert.equal(calls.length, 1);
+  assert.throws(() => withProviderToken("https://midnight-preprod.blockfrost.io/api/v0", {}, { reader }), /MIDNIGHT_BLOCKFROST_SECRET_NAME/);
+  assert.throws(() => withProviderToken("https://midnight-preprod.blockfrost.io/api/v0", env, { reader: () => ({ status: 44, stdout: "" }) }), /missing or malformed/);
 });

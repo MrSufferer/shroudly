@@ -20,7 +20,7 @@ Shroudly is a Midnight Preprod proving ground for a shielded `tMIX` prize pool. 
 | Full settlement pause | At most 24 hours without renewal |
 | Sponsor timeout | Eight seconds |
 
-The accepted compatibility profile is Compact CLI/devtools 0.5.2, Compact language 0.23.0, compiler 0.31.1, runtime 0.16.0, Midnight.js 4.1.1, Wallet SDK 1.2.0, DApp Connector 4.0.1, node 1.0.2, indexer 4.3.3-hotfix, and proof server 8.1.0. See [`midnight/version-profile.json`](midnight/version-profile.json).
+The accepted compatibility profile is Compact CLI/devtools 0.5.2, Compact language 0.23.0, compiler 0.31.1, runtime 0.16.0, Midnight.js 4.1.1, Wallet SDK 1.2.0, DApp Connector 4.0.1, node 1.0.400, indexer 4.3.302 (Blockfrost-hosted, version unverified), on-chain runtime 3.0.0, and proof server 8.1.3 run locally. See [`midnight/version-profile.json`](midnight/version-profile.json).
 
 ## Repository map
 

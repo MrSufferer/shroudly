@@ -101,7 +101,7 @@ test('validates protocol responses and keeps proof version and wallet funding as
   const server = createServer((req, res) => {
     res.setHeader('content-type', 'application/json');
     if (req.url === '/graphql') res.end(JSON.stringify({ data: { __typename: 'Query' } }));
-    else if (req.url === '/version') res.end('8.1.0');
+    else if (req.url === '/version') res.end('8.1.3');
     else res.end(JSON.stringify({ jsonrpc: '2.0', id: 1, result: 'Midnight Preprod' }));
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));

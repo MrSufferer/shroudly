@@ -19,7 +19,7 @@ export const COMPACT_PROFILE = Object.freeze({
   midnightJs: "4.1.1",
   dappConnector: "4.0.1",
   walletSdk: "1.2.0",
-  node: "1.0.2",
-  indexer: "4.3.3-hotfix",
-  proofServer: "8.1.0",
+  node: "1.0.400",
+  indexer: "4.3.302",
+  proofServer: "8.1.3",
 });

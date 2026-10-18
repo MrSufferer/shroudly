@@ -215,6 +215,15 @@ require_https() {
   fi
 }
 
+require_proxy_route() {
+  local key="$1" value="$2"
+  require_https "$key" "$value"
+  if [[ "$value" == *blockfrost.io* || "$value" == *project_id=* || "$value" == *.invalid* ]]; then
+    warn "$key must be the deployed Chain Data Proxy route, not a Blockfrost URL, token, or placeholder"
+    exit 1
+  fi
+}
+
 require_hash() {
   local key="$1" value="$2"
   require_value "$key" "$value"
@@ -344,6 +353,7 @@ note "Captured value: VITE_SHROUDLY_SPONSOR_URL. Source: the deployed Sponsor Se
 ask VITE_SHROUDLY_SPONSOR_URL "Paste the public Sponsor Service URL:"
 require_https VITE_SHROUDLY_SPONSOR_URL "$VITE_SHROUDLY_SPONSOR_URL"
 write_env VITE_SHROUDLY_SPONSOR_URL "$VITE_SHROUDLY_SPONSOR_URL"
+step "Create the Chain Data Proxy as its own Render service. Store the public-account Blockfrost project ID only in that service's Render secret store; the Sponsor and Automation services use the separate operator account. Configure a Better Stack alert at 80% of the daily request quota."
 note "Captured value: SHROUDLY_RENDER_AUTOMATION_ENDPOINT. Source: the approved Render automation/signer endpoint. Destination: ENV_FILE only for the isolated Render contributor runner; it is public routing, not a credential."
 ask SHROUDLY_RENDER_AUTOMATION_ENDPOINT "Paste the Render automation endpoint:"
 require_https SHROUDLY_RENDER_AUTOMATION_ENDPOINT "$SHROUDLY_RENDER_AUTOMATION_ENDPOINT"
@@ -381,8 +391,11 @@ step "Add the public variables below to the Preproduction target in Vercel, then
 note "Captured values are public browser configuration. Source: the deployment worksheet, Midnight Preprod endpoints, Render, and the contract build/deployment outputs. Destination: ENV_FILE and Vercel environment variables; none are secrets."
 ask VITE_SHROUDLY_DEPLOYMENT_ID "Paste the immutable Preprod deployment ID:"
 require_value VITE_SHROUDLY_DEPLOYMENT_ID "$VITE_SHROUDLY_DEPLOYMENT_ID"
-VITE_SHROUDLY_RPC_URL="https://rpc.preprod.midnight.network"
-VITE_SHROUDLY_INDEXER_URL="https://indexer.preprod.midnight.network/api/v4/graphql"
+note "VITE_SHROUDLY_RPC_URL and VITE_SHROUDLY_INDEXER_URL are Chain Data Proxy routes, never Blockfrost URLs: the provider token lives only in the proxy's Render secret store."
+ask VITE_SHROUDLY_RPC_URL "Paste the Chain Data Proxy RPC route:"
+require_proxy_route VITE_SHROUDLY_RPC_URL "$VITE_SHROUDLY_RPC_URL"
+ask VITE_SHROUDLY_INDEXER_URL "Paste the Chain Data Proxy indexer route:"
+require_proxy_route VITE_SHROUDLY_INDEXER_URL "$VITE_SHROUDLY_INDEXER_URL"
 write_env VITE_SHROUDLY_RPC_URL "$VITE_SHROUDLY_RPC_URL"
 write_env VITE_SHROUDLY_INDEXER_URL "$VITE_SHROUDLY_INDEXER_URL"
 ask VITE_SHROUDLY_ZK_CONFIG_URL "Paste the pinned ZK configuration URL:"
