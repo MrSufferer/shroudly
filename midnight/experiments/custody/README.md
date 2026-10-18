@@ -20,7 +20,7 @@ docker inspect shroudly-preprod-proof-server
 If absent, create it with the [#20 runbook's pinned image](../../../docs/operations/preprod-access.md):
 
 ```sh
-docker run -d --name shroudly-preprod-proof-server -p 127.0.0.1:6300:6300 midnightntwrk/proof-server@sha256:801bbc0340e9e96f16735f77b523f23c7459e3359842f7c79c2c53f4e994d531
+docker run -d --name shroudly-preprod-proof-server -p 127.0.0.1:6300:6300 midnightntwrk/proof-server@sha256:0f4ab0716985eaebbe55a970348f52ff05ffd8a96631ed7232bd0c4ba02c115c
 ```
 
 If stopped, use `docker start shroudly-preprod-proof-server`. Before running
