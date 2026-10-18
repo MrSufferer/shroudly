@@ -56,6 +56,9 @@ export async function openStagedWallet(path, {syncMs = 9000000} = {}) {
   const proxy = await providerProxy({...endpoints, token});
   configuration.relayURL = new URL(proxy.rpc);
   configuration.indexerClientConnection = {indexerHttpUrl: proxy.http, indexerWsUrl: proxy.ws};
+  // At Preprod's floor fee price a call that moves no coins prices at 0 DUST, and dust-wallet 4.2.0
+  // then loops in balancing until wasm traps (#21, commit 2fc13c3). A fixed overhead forces coin selection.
+  configuration.costParameters = {...configuration.costParameters, additionalFeeOverhead: 1_000_000_000n};
   stage('proxy-open');
   let wallet;
   try {
