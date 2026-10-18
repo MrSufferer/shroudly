@@ -10,11 +10,14 @@ import {compiledProbe,nodeProviders,indexerFetcher,LOCK} from './journey-env.mjs
 import {fromHex} from './codec.mjs';
 import {TX_QUERY} from './probe-runtime.mjs';
 import {assessJourney} from './journey-assess.mjs';
+import {abortSummary,errorDetail} from './error-detail.mjs';
+import {dustView,waitForIndexerAtNode,waitForFreshDust,nodeFinalizedHeight,indexerTipHeight} from './dust-freshness.mjs';
 
 // Live Preprod journey orchestrator (Node participant, protected wallet as the
 // wallet service). Output is a sanitized evidence record: public transaction
 // identifiers, ledger rounds, outcomes and timings only. Child stdio is
-// discarded; nothing here prints URLs, keys, secrets or SDK errors.
+// discarded; SDK errors are recorded only as redacted cause chains
+// (error-detail.mjs), never raw, so no URL, key, token or secret is printed.
 //
 // usage: node live-journey.mjs <protected-env-file> [stateDir]
 // Supervisor: run the journey in a worker whose stdio is discarded, because SDK
@@ -42,10 +45,9 @@ async function acquireLock() {
 const releaseLock=()=>{try{rmdirSync(LOCK);}catch{}};
 // Another agent may have spent shared DUST while this process waited for the lock.
 const trace=(stage,data={})=>process.send?.({submitStage:stage,atMs:Date.now()-started,...data});
-const dustView=state=>{try{return {dustPositive:state.dust.balance(new Date())>0n,dustAvailable:(state.dust.availableCoins??[]).length,dustPending:(state.dust.pendingCoins??[]).length};}catch{return {};}};
 
 const opened=await openWalletWithProgress(envPath,{timeoutMs:7_200_000,onProgress:p=>process.send?.({syncProgress:p,atMs:Date.now()-started})})
-  .catch(error=>{process.send?.({result:'aborted',abortCategory:'wallet-not-synchronized',stage:error?.stage,attempts:error?.attempts,atMs:Date.now()-started},()=>process.exit(1));return new Promise(()=>{});});
+  .catch(error=>{process.send?.({result:'aborted',abortCategory:'wallet-not-synchronized',abortDetail:errorDetail(error),stage:error?.stage,attempts:error?.attempts,atMs:Date.now()-started},()=>process.exit(1));return new Promise(()=>{});});
 let dustFunded=null;try{dustFunded=opened.state.dust.balance(new Date())>0n;}catch{}
 step('wallet-synchronized',{fromCache:opened.fromCache,dustFunded});
 const keys={coinPublicKey:opened.shielded.coinPublicKey,encryptionPublicKey:opened.shielded.encryptionPublicKey};
@@ -70,14 +72,18 @@ const walletProviderFor=session=>({
     return finalized;
   },
 });
-// Opened after taking the lock, so it observes every earlier holder's spend.
+// Opened after taking the lock, so it observes every earlier holder's spend,
+// provided the indexer has caught up with the node: the wallet only counts
+// itself synced against the indexer tip. Both waits are bounded and traced;
+// if they expire the session is used anyway and the trace shows the view.
 async function signingSession() {
   const session=await openWalletWithProgress(envPath,{timeoutMs:1_200_000});
   trace('session-synced',dustView(session.state));
-  for(const deadline=Date.now()+600000;Date.now()<deadline;await sleep(10000)) {
-    const view=dustView(await Rx.firstValueFrom(session.wallet.state()));
-    if(view.dustAvailable>0&&!view.dustPending){trace('dust-ready',view);break;}
-  }
+  const rpcHttp=String(session.configuration.relayURL).replace(/^ws/,'http');
+  const caughtUp=await waitForIndexerAtNode({nodeHeight:nodeFinalizedHeight(rpcHttp),indexerHeight:indexerTipHeight(indexerFetcher(session.configuration.indexerClientConnection.indexerHttpUrl))});
+  trace('indexer-at-node',caughtUp);
+  const dust=await waitForFreshDust({syncedState:()=>session.wallet.waitForSyncedState()});
+  trace(dust.ready?'dust-ready':'dust-wait-expired',{...dust.view,waitedMs:dust.waitedMs});
   return session;
 }
 const shim=()=>{
@@ -105,12 +111,12 @@ async function submitForApp(message,child) {
   let handedOff=false,txId,session;
   try{
     try{session=await signingSession();}
-    catch{trace('session-failed');child.connected&&child.send({id:message.id,error:'before-submit'});evidence.submissions.push({...counted,outcome:'not-submitted'});return;}
+    catch(error){trace('session-failed',{detail:errorDetail(error)});child.connected&&child.send({id:message.id,error:'before-submit'});evidence.submissions.push({...counted,outcome:'not-submitted'});return;}
     const walletProvider=walletProviderFor(session);
     const unprovenTx=ledgerProtocol.Transaction.deserialize('signature','pre-proof','pre-binding',fromHex(message.bytes));
     const midnightProvider={submitTx:async tx=>{handedOff=true;trace('handing-off');return session.wallet.submitTransaction(tx);}};
     try{txId=await Promise.race([contracts.submitTxAsync({...providers,walletProvider,midnightProvider},{unprovenTx,circuitId:message.circuit}),sleep(1_200_000).then(()=>{throw Error('submit-timeout');})]);}
-    catch(error){trace('submit-failed',{timeout:error?.message==='submit-timeout',handedOff});child.connected&&child.send({id:message.id,error:handedOff?'after-submit':'before-submit'});evidence.submissions.push({...counted,outcome:handedOff?'unknown':'not-submitted'});return;}
+    catch(error){const detail=errorDetail(error);trace('submit-failed',{timeout:error?.message==='submit-timeout',handedOff,detail});child.connected&&child.send({id:message.id,error:handedOff?'after-submit':'before-submit'});evidence.submissions.push({...counted,outcome:handedOff?'unknown':'not-submitted',detail});return;}
     evidence.submissions.push({...counted,txId,outcome:'handed-off'});
     child.connected&&child.send({id:message.id,txId});
     trace('handed-off');
@@ -142,7 +148,7 @@ async function deploy() {
     session=await signingSession();
     const walletProvider=walletProviderFor(session);
     const compiledContract=await compiledProbe();
-    const midnightProvider={submitTx:tx=>session.wallet.submitTransaction(tx)};
+    const midnightProvider={submitTx:async tx=>{trace('handing-off',{circuit:'deploy'});return session.wallet.submitTransaction(tx);}};
     const deployed=await contracts.deployContract({...providers,walletProvider,midnightProvider,privateStateProvider:shim()},{compiledContract,args:[]});
     return {address:deployed.deployTxData.public.contractAddress,txId:deployed.deployTxData.public.txId};
   } finally{await session?.close();releaseLock();}
@@ -188,13 +194,13 @@ try{
   evidence.assessment=assessJourney(evidence);
   evidence.result=evidence.assessment.passed?'completed':'failed-checks';
 } catch(error) {
-  evidence.result='aborted';evidence.abortCategory=error?.message?.slice(0,80)?.replace(/https?:\S+|0x[0-9a-fA-F]{40,}/g,'<redacted>');
+  evidence.result='aborted';Object.assign(evidence,abortSummary(error));
 } finally{
   evidence.finishedAt=new Date().toISOString();
   await opened.close().catch(()=>{});
   const out=join(here,'results','live-preprod-node.json');
   mkdirSync(join(here,'results'),{recursive:true});
   writeFileSync(out,JSON.stringify(evidence,(_,v)=>typeof v==='bigint'?v.toString():v,2)+'\n');
-  process.send?.({result:evidence.result,abortCategory:evidence.abortCategory,failures:evidence.assessment?.failures,steps:evidence.steps.length,stateDir});
+  process.send?.({result:evidence.result,abortCategory:evidence.abortCategory,abortDetail:evidence.abortDetail,failures:evidence.assessment?.failures,steps:evidence.steps.length,stateDir});
   process.exit(evidence.result==='completed'?0:1);
 }
