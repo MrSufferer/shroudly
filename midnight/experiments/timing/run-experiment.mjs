@@ -139,18 +139,19 @@ if (process.argv[2] === '--worker') {
 
     // ---- Claim deadlines are derived from fresh ledger reads, never from the harness's own clock.
     const state = await readLedger();
-    const selectedD = Number(state.selectedAt.lookup(D)), selectedD2 = Number(state.selectedAt.lookup(D2));
+    // D2 may fail to finalize; keep measuring D's claim window rather than crash on the missing cell.
+    const selectedD = Number(state.selectedAt.lookup(D)), selectedD2 = state.selectedAt.member(D2) ? Number(state.selectedAt.lookup(D2)) : null;
     const base = selected => selected + SCHEDULE.BUCKET + SCHEDULE.FINALITY_ALLOWANCE + SCHEDULE.CLAIM;
     const pauseRecord = state.pauses.lookup(0n);
     const extension = Math.max(0, Number(pauseRecord.end) - Math.max(Number(pauseRecord.start), selectedD));
-    evidence.deadlines = {selectedD, selectedD2, baseD: base(selectedD), baseD2: base(selectedD2), claimPause: {start: Number(pauseRecord.start), end: Number(pauseRecord.end), extension}, extendedD: base(selectedD) + extension};
+    evidence.deadlines = {selectedD, selectedD2, baseD: base(selectedD), baseD2: selectedD2 === null ? null : base(selectedD2), claimPause: {start: Number(pauseRecord.start), end: Number(pauseRecord.end), extension}, extendedD: base(selectedD) + extension};
     save();
     emit({stage: 'deadlines', ...evidence.deadlines});
 
     const claimDAt = evidence.deadlines.extendedD - 14;
     await step({id: 'D.claim.afterBaseDeadline', circuit: 'claim', args: [D], at: claimDAt, expect: 'accept', note: 'targets block time after the base deadline but just before the pause-extended deadline'});
-    const lateAt = evidence.deadlines.baseD2 + 12;
-    await step({id: 'D2.claim.pastBaseDeadline', circuit: 'claim', args: [D2], at: lateAt, forge: evidence.deadlines.baseD2 - 200, expect: 'reject', note: 'draw D2 was never paused for claims: scoped pause and unrelated pause give no grace'});
+    if (selectedD2 === null) evidence.notes.push('D2 did not finalize, so D2.claim.pastBaseDeadline was not run');
+    else await step({id: 'D2.claim.pastBaseDeadline', circuit: 'claim', args: [D2], at: evidence.deadlines.baseD2 + 12, forge: evidence.deadlines.baseD2 - 200, expect: 'reject', note: 'draw D2 was never paused for claims: scoped pause and unrelated pause give no grace'});
 
     // ---- Offline replay against recorded block times, plus operations exposed by the deployed contract.
     const { verdicts } = replay(evidence.steps);
@@ -167,7 +168,7 @@ if (process.argv[2] === '--worker') {
   } catch (error) {
     evidence.failure = errorClass(error); save(); process.exitCode = 1;
     emit({done: false, error: errorClass(error), detail: errorDetail(error)});
-  } finally { await session?.opened.close().catch(() => {}); process.exit(); }
+  } finally { await session?.close().catch(() => {}); process.exit(); }
 } else {
   const [envPath, mode = 'full', name = `network-${mode}.json`] = process.argv.slice(2);
   if (!envPath) throw Error('Pass the protected local environment file path');

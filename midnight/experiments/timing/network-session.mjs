@@ -76,7 +76,9 @@ export async function providerClock(provider) {
 
 export async function openSession(envPath) {
   const opened = await openStagedWallet(envPath);
-  const {wallet, shielded, dust, provider: proxy} = opened;
+  const {shielded, dust, provider: proxy} = opened;
+  let wallet = opened.wallet;
+  const reopened = [];
   (await import('@midnight-ntwrk/midnight-js-network-id')).setNetworkId('preprod');
   const contracts = await import('@midnight-ntwrk/midnight-js-contracts');
   const compact = await import('@midnight-ntwrk/midnight-js-protocol/compact-js');
@@ -104,6 +106,16 @@ export async function openSession(envPath) {
       const began = Date.now();
       const synced = await Promise.race([wallet.waitForSyncedState().then(() => true), new Promise(resolve => setTimeout(resolve, 120000, false))]);
       control.walletView = {syncedBeforeBalancing: synced, syncWaitMs: Date.now() - began, ...dustView(await currentState(wallet))};
+      // Run 3 lost its only DUST coin from the in-memory view after a rejected submission, while a
+      // separate wallet synced a minute later still saw it at the cap. The cache is saved only at open,
+      // so reopen from it (keeping the first proxy, which the indexer provider still uses).
+      if (control.walletView.dustAvailableCoins === 0) {
+        const lostAt = Date.now();
+        await wallet.stop().catch(() => {});
+        const fresh = await openStagedWallet(envPath);
+        reopened.push(fresh); wallet = fresh.wallet;
+        control.walletView = {...control.walletView, reopenedMs: Date.now() - lostAt, afterReopen: dustView(fresh.state)};
+      }
       const recipe = await wallet.balanceUnboundTransaction(tx, {shieldedSecretKeys: shielded, dustSecretKey: dust}, {ttl});
       return wallet.finalizeRecipe(recipe);
     },
@@ -121,7 +133,11 @@ export async function openSession(envPath) {
     proofProvider: proofModule.httpClientProofProvider('http://127.0.0.1:6300', zkConfigProvider, {timeout: 300000}),
     walletProvider, midnightProvider,
   };
-  return {opened, providers, compiled, contracts, module, control, publicDataProvider, provider: clientFor(proxy), ledgerV8, wallet};
+  const close = async () => {
+    for (const fresh of reopened) await fresh.close().catch(() => {});
+    if (reopened.length) await proxy.close(); else await opened.close();
+  };
+  return {opened, close, providers, compiled, contracts, module, control, publicDataProvider, provider: clientFor(proxy), ledgerV8, wallet: () => wallet};
 }
 
 export {errorClass};
