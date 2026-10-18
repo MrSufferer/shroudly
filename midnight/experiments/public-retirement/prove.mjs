@@ -5,6 +5,8 @@ import { readFileSync } from 'node:fs';
 import { createPool, TMIX } from './pool.mjs';
 
 export const PROOF_SERVER = 'http://127.0.0.1:6300';
+// The version profile is the only source for the required proof server version.
+export const PROOF_SERVER_VERSION = JSON.parse(readFileSync(new URL('../../version-profile.json', import.meta.url))).proofServer;
 const NETWORK = 'undeployed';
 export const MANAGED = new URL('../../managed/public-retirement', import.meta.url).pathname;
 export const CIRCUITS = ['enroll', 'contribute', 'withdraw', 'closeDraw', 'compactRetired', 'claim'];
@@ -31,7 +33,7 @@ const ledgerQueryContext = (before, after) => {
 
 // Deploys the contract with verifier keys into a blank ledger and proves calls against it on the
 // proof server. wellFormed checks transcript, structure and limits; the negative controls show
-// whether it also checks contract proofs (in ledger-v8 8.1.0 JS it does not).
+// whether it also checks contract proofs (ledger-v8 8.1.0 JS, the profile pin, does not; nor does 8.1.3).
 export async function openProver({start, verifierKeyOf = verifierKey}) {
   const state = L.ContractState.deserialize(createPool({start}).initialContractState().serialize());
   for (const circuit of CIRCUITS) {

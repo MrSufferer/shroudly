@@ -1,13 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PROOF_SERVER, proveAgainstWrongKey, proveScenario } from './prove.mjs';
+import { PROOF_SERVER, PROOF_SERVER_VERSION, proveAgainstWrongKey, proveScenario } from './prove.mjs';
 
 const START = 1_800_000_000;
 const serverVersion = await fetch(`${PROOF_SERVER}/version`).then(r => r.text(), () => undefined);
-// Real proofs only: without proof server 8.1.0 these tests are skipped, never mocked.
-const live = {skip: serverVersion === '8.1.0' ? false : `proof server 8.1.0 unavailable (${serverVersion})`, timeout: 900_000};
+// Real proofs only: without the version profile's proof server these tests are skipped, never mocked.
+const live = {skip: serverVersion === PROOF_SERVER_VERSION ? false : `proof server ${PROOF_SERVER_VERSION} unavailable (${serverVersion})`, timeout: 900_000};
 
-test('every circuit proves on proof server 8.1.0 into a well-formed transaction within block limits', live, async () => {
+test('every circuit proves on the version profile proof server (8.1.3) into a well-formed transaction within block limits', live, async () => {
   const {measured, tamperedProof} = await proveScenario({start: START});
   assert.deepEqual(measured.map(m => [m.circuit, m.wellFormed]), [
     ['enroll', 'accepted'], ['contribute', 'accepted'], ['withdraw', 'accepted'],

@@ -12,7 +12,18 @@ test('the recorded run matches the current sources and qualifies nothing', () =>
     assert.equal(sha256(path), hash, `${path} changed since the recorded run; rerun with --record`);
   }
   assert.equal(results.releaseQualified, false);
-  assert.equal(results.toolchain.proofServer.reportedVersion, '8.1.0');
+  const profile = JSON.parse(readFileSync(new URL('../../version-profile.json', import.meta.url)));
+  assert.equal(results.toolchain.proofServer.reportedVersion, profile.proofServer);
+});
+
+test('every recorded circuit is within the Preprod limits', () => {
+  const {preprodLimits: limits} = results;
+  assert.deepEqual(limits, {transactionBytes: 786_432, k: 25, verifierKeyBytes: 50_000});
+  for (const [circuit, key] of Object.entries(results.keys)) {
+    assert.ok(Number.isInteger(key.k) && key.k <= limits.k, `${circuit} k=${key.k}`);
+    assert.ok(key.verifier.bytes <= limits.verifierKeyBytes, `${circuit} verifier key ${key.verifier.bytes} bytes`);
+  }
+  for (const proof of results.proofs) assert.ok(proof.transactionBytes <= limits.transactionBytes, proof.circuit);
 });
 
 test('the record holds measurements and hashes only, never keys or openings', () => {
