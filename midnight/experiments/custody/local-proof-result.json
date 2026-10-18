@@ -1,7 +1,7 @@
 {
   "format": "shroudly-custody-local-proof-v1",
-  "checkedAt": "2026-10-17T06:47:59.518Z",
-  "sourceRevision": "b91423f34c1200e0108fdd273fdd9aa218b1b4cf",
+  "checkedAt": "2026-10-18T07:37:12.751Z",
+  "sourceRevision": "7031ffab16ce03260f21c83b3a0590adf90be502",
   "sourceHash": "e037a5ae6fd5e8bbadf9dbab39a25ca842f309bd0d4464db21b035eecf1cc01c",
   "artifacts": {
     "contract/index.js": "7d35ec37fc5c3a6ba85f13127208708024171fcfb0846cec4a1e1a32dd30704c",
@@ -26,15 +26,15 @@
       "circuit": "seed",
       "proved": true,
       "proofBytes": 4508,
-      "proofSha256": "e69dd92f400b5dc2f39b1d4fe1d06c4517332895c3e4b257b509f63b194645b2",
-      "elapsedMs": 1595
+      "proofSha256": "6cbd93cb92efa2d667c3da0c699674a48472ec15804b4dac54a2dcf0fe925277",
+      "elapsedMs": 2302
     },
     {
       "circuit": "allocateYield",
       "proved": true,
       "proofBytes": 4508,
-      "proofSha256": "9d910d2eeaf23245496bd30510065ae51096515807e83434b002dfa7f068fb25",
-      "elapsedMs": 858
+      "proofSha256": "a2104f107a007d8e0be7e9aef4418bdbe681ba0c1255cce41ace6b83836350f3",
+      "elapsedMs": 1184
     }
   ]
 }

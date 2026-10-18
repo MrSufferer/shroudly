@@ -24,7 +24,7 @@ docker run -d --name shroudly-preprod-proof-server -p 127.0.0.1:6300:6300 midnig
 ```
 
 If stopped, use `docker start shroudly-preprod-proof-server`. Before running
-the proof command, check readiness and require the exact response `8.1.0`:
+the proof command, check readiness and require the exact response `8.1.3`:
 
 ```sh
 curl --fail --silent --show-error --max-time 5 http://127.0.0.1:6300/version
@@ -149,10 +149,11 @@ captures its own manifest at process startup. A dirty flag means the execution
 script hashes, rather than revision alone, identify the exact runner.
 
 Local proof evidence remains in `local-proof-result.json`: 4,508-byte proofs for
-seed (1,595 ms) and allocation (858 ms), not finalized network acceptance.
+seed (2,302 ms) and allocation (1,184 ms), re-run on proof server 8.1.3, not
+finalized network acceptance.
 The execution profile is Node 24.10.0, Compact CLI 0.5.2/compiler 0.31.1,
 Compact runtime 0.16.0, Midnight.js 4.1.1, wallet SDK 1.2.0, ledger-v8 8.1.0,
-and participant-local proof server 8.1.0.
+and participant-local proof server 8.1.3.
 
 ADR 0013 remains accepted. These synthetic, publicly diagnosable minted assets
 are not real saver deposits or participant-private accounting. Conditional
