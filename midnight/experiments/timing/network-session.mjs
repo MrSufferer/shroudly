@@ -75,6 +75,23 @@ export async function openSession(envPath) {
   const zkConfigProvider = new zkModule.NodeZkConfigProvider(MANAGED.pathname);
   const publicDataProvider = indexer.indexerPublicDataProvider(proxy.http, proxy.ws);
   const coinPublicKey = shielded.coinPublicKey, encryptionPublicKey = shielded.encryptionPublicKey;
+  // Run 3 lost its only DUST coin from the in-memory view after a rejected submission, while a
+  // separate wallet synced a minute later still saw it at the cap. The cache is saved only at open,
+  // so reopen from it (keeping the first proxy, which the indexer provider still uses). A reopen
+  // took 90-164 s in runs 9 and 10, so run-experiment also checks right after each rejection, while
+  // it is idle, instead of only when the next timed step balances.
+  const reopenWallet = async () => {
+    const lostAt = Date.now();
+    await wallet.stop().catch(() => {});
+    const fresh = await openStagedWallet(envPath);
+    reopened.push(fresh); wallet = fresh.wallet;
+    return {reopenedMs: Date.now() - lostAt, afterReopen: dustView(fresh.state)};
+  };
+  control.ensureDust = async () => {
+    const synced = await Promise.race([wallet.waitForSyncedState().then(() => true), new Promise(resolve => setTimeout(resolve, 60000, false))]);
+    const view = {synced, ...dustView(await currentState(wallet))};
+    return view.dustAvailableCoins === 0 ? {...view, ...await reopenWallet()} : view;
+  };
   const walletProvider = {
     getCoinPublicKey: () => coinPublicKey, getEncryptionPublicKey: () => encryptionPublicKey,
     balanceTx: async (tx, ttl = new Date(Date.now() + 3_600_000)) => {
@@ -83,16 +100,7 @@ export async function openSession(envPath) {
       const began = Date.now();
       const synced = await Promise.race([wallet.waitForSyncedState().then(() => true), new Promise(resolve => setTimeout(resolve, 120000, false))]);
       control.walletView = {syncedBeforeBalancing: synced, syncWaitMs: Date.now() - began, ...dustView(await currentState(wallet))};
-      // Run 3 lost its only DUST coin from the in-memory view after a rejected submission, while a
-      // separate wallet synced a minute later still saw it at the cap. The cache is saved only at open,
-      // so reopen from it (keeping the first proxy, which the indexer provider still uses).
-      if (control.walletView.dustAvailableCoins === 0) {
-        const lostAt = Date.now();
-        await wallet.stop().catch(() => {});
-        const fresh = await openStagedWallet(envPath);
-        reopened.push(fresh); wallet = fresh.wallet;
-        control.walletView = {...control.walletView, reopenedMs: Date.now() - lostAt, afterReopen: dustView(fresh.state)};
-      }
+      if (control.walletView.dustAvailableCoins === 0) control.walletView = {...control.walletView, ...await reopenWallet()};
       const recipe = await wallet.balanceUnboundTransaction(tx, {shieldedSecretKeys: shielded, dustSecretKey: dust}, {ttl});
       return wallet.finalizeRecipe(recipe);
     },

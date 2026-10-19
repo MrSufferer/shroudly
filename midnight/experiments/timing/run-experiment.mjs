@@ -75,6 +75,8 @@ if (process.argv[2] === '--worker') {
             record.outcome = record.txId ? 'finality-unobserved' : 'rejected-before-block';
             record.errorClass = errorClass(error); record.errorDetail = errorDetail(error);
             if (error?.abortRun) throw error;
+            // A rejection can empty the in-memory DUST view; repair it now, while idle and still holding the lock.
+            if (!record.txId) record.dustAfterRejection = await control.ensureDust().catch(e => ({error: errorClass(e)}));
           } finally { record.wallet = control.walletView ?? null; control.walletView = undefined; control.forgedSeconds = undefined; control.gate = undefined; control.submitStalled = undefined; }
         }});
       } catch (error) {
