@@ -54,6 +54,10 @@ if (process.argv[2] === '--worker') {
       // window: evaluation then runs no earlier than 20 s after the window opens.
       await waitUntil(at - 25);
       const record = {id, circuit, args: args.map(String), slot, forgedClockSeconds: forge ?? null, targetSeconds: at, expected: expect, note};
+      // Run 4 slept through its claim target (macOS idle sleep); flag any step that woke late so the
+      // outcome is not read as network behaviour.
+      const lateBy = clock.now() - (at - 25);
+      if (lateBy > 10) record.lateStartSeconds = +lateBy.toFixed(1);
       await withWalletLock(async lockWaitMs => {
         record.lockWaitMs = lockWaitMs;
         control.forgedSeconds = forge; control.slot = slot;
@@ -75,7 +79,12 @@ if (process.argv[2] === '--worker') {
       emit({step: id, outcome: record.outcome, expected: expect, blockTimestampMs: record.blockTimestampMs ?? null, submittedAtSeconds: record.submittedAtSeconds ?? null, errorClass: record.errorClass, errorDetail: record.errorDetail});
       return record;
     };
-    const honestBucketAt = target => bucketAt(Math.max(target, clock.now() + 25) + 8);
+    // Local evaluation runs from target - 25 and inclusion lands a few seconds after the target; both
+    // must fall in the stated bucket. Run 4's D2.finalize at second :55 failed this locally.
+    const honestBucketAt = target => {
+      if (bucketAt(target - 25) !== bucketAt(target + 8)) throw Error(`honest bucket target ${target} straddles a bucket boundary`);
+      return bucketAt(Math.max(target, clock.now() + 25) + 8);
+    };
 
     if (mode === 'smoke') {
       const t = clock.now();
@@ -134,7 +143,7 @@ if (process.argv[2] === '--worker') {
     await step({id: 'D.pause.deposits', circuit: 'pause', args: [2n, 0n, honestBucketAt(depositsAt), 120n], at: depositsAt, expect: 'accept', note: 'unrelated pause: must not extend any claim deadline'});
     await step({id: 'D2.reveal.slot0', circuit: 'reveal', args: [D2, 0n], slot: 0, at: E + 945, expect: 'accept'});
     await step({id: 'D2.reveal.slot1', circuit: 'reveal', args: [D2, 1n], slot: 1, at: E + 990, expect: 'accept'});
-    const finalize2At = E + 1200 + 55;
+    const finalize2At = E + 1200 + 35;
     await step({id: 'D2.finalize', circuit: 'finalize', args: [D2, honestBucketAt(finalize2At)], at: finalize2At, expect: 'accept'});
 
     // ---- Claim deadlines are derived from fresh ledger reads, never from the harness's own clock.
