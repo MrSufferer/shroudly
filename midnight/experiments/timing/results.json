@@ -1,6 +1,6 @@
 {
   "format": "shroudly-timing-results-v1",
-  "sourceRevision": "4a3e84e1ea2d0c59edbb689e2f887abf5c08d2dd",
+  "sourceRevision": "6d610f239c22d048949112da867c6b8576343010",
   "schedule": {
     "INTERVAL": 900,
     "COMMIT_CUTOFF": 180,
@@ -10,13 +10,13 @@
     "FINALITY_ALLOWANCE": 120,
     "MAX_PAUSE": 86400
   },
-  "providerClockOffsetMs": 257,
-  "contractAddress": "4f0ddfca2de41a579b8d508c11ff6958c4562daffb893e35eef2d84e61956e34",
+  "providerClockOffsetMs": 109,
+  "contractAddress": "b9b886a53c2008d679906791c6bf05e0ff74995fc21c96428aab15e809386f39",
   "deployment": {
-    "txHash": "8093b1b75560382421e0322075bdff252f0113fcbc5bbcbfcd64e9dccfe5f202",
-    "blockHash": "b124d4ab8b1cb47800ac42ae6a9956bbafa47de6372f50ec61ede56d7be14f0f",
-    "blockHeight": 3042433,
-    "blockTimestampMs": 1792373976000,
+    "txHash": "885d42cd4ba755a2ed79b8b461636522237b50257207e989b91fd474a3b2f174",
+    "blockHash": "91e6398ff397991afea298653095ac247f8de17aa99587b79f363f1761ec437c",
+    "blockHeight": 3049838,
+    "blockTimestampMs": 1792422162000,
     "status": "SucceedEntirely"
   },
   "deployedOperations": [
@@ -28,58 +28,59 @@
     "reveal"
   ],
   "artifactHashes": {
-    "contract/index.js": "db9fc1f01282715f98d738f96a248eb486035a3f6e916b442698156c4154c10c",
+    "contract/index.js": "bcdaa8c4c0ac1340bccf803c8446f44b13976b8be4f0cc5f2ce2b3904ff0cbb1",
     "keys/claim.prover": "bc75ec7eca8f9dd803781c5c7a20ce06617fc7830b3e6de20e5245de87e8cc6d",
     "keys/claim.verifier": "75d8716205fe5551ead808e555fe26d69589b3b3917e17769bf8b234ee3c0b12",
-    "keys/commit.prover": "a8df77820db1a98322039544ab17e3d5b6a55dabd9df6d227435208835dca49a",
-    "keys/commit.verifier": "e3fbfb105655e96cadee84b80f640495de6850232b1556c81cee8e7f65808a76",
+    "keys/commit.prover": "59742e2ecf6dc872900c1bfaa9eeaaade1098a9afcfeca506b7a99f47b6a4327",
+    "keys/commit.verifier": "88b27517ea30118f9ff2d011b7acf6b8d876036178e639b5926322e34518a826",
     "keys/finalize.prover": "7ce3464f58678426262cd866c7ff25c92e3c992d205151bfecf42b4b6af4a4b3",
     "keys/finalize.verifier": "26f550e0a0087ae55c32f37e357c6954ae6e4fadaa09b47e179553fd18241787",
-    "keys/pause.prover": "536e57f0096f4a336e60e329b1c02d6e3fb5b7abb118e97fafc03b28c2f9490c",
-    "keys/pause.verifier": "824f65f1f15f8ebd1824e020119df19a68ba3ac59816ae50a70dd5bbae9464ab",
+    "keys/pause.prover": "fbb3ce050ad7f057a1faf08dc6f1406d1e50a1b8f63637c910257c0c3edaab16",
+    "keys/pause.verifier": "b61ae06d44a5a70cf436c6d9716da637771c6a68fd8c0f2d3ad02cf240480ac8",
     "keys/resume.prover": "7e985c7d97be8fbbee38a676b2800b7a478faf03d2164c3ea1ab0cc02738d458",
     "keys/resume.verifier": "5aaf1b4eaed8ead4203201e7746147791abfdcfeee585a04daf99f2c2135d869",
     "keys/reveal.prover": "78a8c8fda0bb38ca6808364a19a0223631c6eeae312c80a5b668ef1e08416177",
     "keys/reveal.verifier": "cd55302e725e6241b6bc6eee0b45e83d22056a9c336c9edf1b0fdbd6901002fb",
     "zkir/claim.bzkir": "127d0ec2dad6d6c5018bc2304620940a24fe03e4e3c5b7c54ca83880ef722178",
     "zkir/claim.zkir": "1ad7627ec160ef0f3b1dc66cde883c258ae8196a48bd4151bc5c3830c7585abb",
-    "zkir/commit.bzkir": "9f129978a3059c73df2e08c95500713298e2e26f1bb879caf000464f38ef9cd3",
-    "zkir/commit.zkir": "7f00c9210856d41e55dbb2225eaf3b05c752971f78d262db2b4d65cd3173a3b2",
+    "zkir/commit.bzkir": "e4b35e862bda220de5848685a54395417b50f05a37bb5e65d3ad830ecb25115d",
+    "zkir/commit.zkir": "6728b8d6df12379fee7d506fb90b7c2c23327ea9cbeff1c09c6bfbbab8d9523d",
     "zkir/finalize.bzkir": "b0560b1ce3036fff4e176d3c61181d8b885a8b3e8805c42e30e791db4d02300b",
     "zkir/finalize.zkir": "e9e96b153c5eadbae138f819e3ea755eed9e470cb5ad7ea3710446f53b289d3a",
-    "zkir/pause.bzkir": "97f7133f5cc5060539d7b49b1a12fa44fe99169da172e20b9f7ccfba37e542b4",
-    "zkir/pause.zkir": "50869d2e75940157ccfaa4370cba9e6988d0edec07dd1c1870ccdf75f2282012",
+    "zkir/pause.bzkir": "7dd6ba74c1c1a77b7fec1f1995501ada047234947b5da976c25017d16caebe8e",
+    "zkir/pause.zkir": "c56e0b06ad6276ac26701fb2de0cdc4f48c7815a6e408391e3c2874f9b4c34b9",
     "zkir/resume.bzkir": "62f87794d04edb8b1ab92d351c4ed33af81eccd5ae8f4a36743ae34bc4115034",
     "zkir/resume.zkir": "b1ab81caad17b6a47b7cd91149449f544b2b42c1a640292078fd7f9270e15f94",
     "zkir/reveal.bzkir": "fe2936bf350f15f48ed41eed2ccd1668cff34a0582636ed2cabd4b5574dd9231",
     "zkir/reveal.zkir": "f8d21bb15c88dedf32678d8eba8054c8285c896060b1301908d5835689fb8295"
   },
   "plan": {
-    "S": 1792375200,
-    "E": 1792376100,
-    "draw": "1991528",
-    "draw2": "1991529",
-    "plannedAtSeconds": 1792373996.326
+    "S": 1792422900,
+    "E": 1792423800,
+    "draw": "1991581",
+    "draw2": "1991582",
+    "plannedAtSeconds": 1792422186.075
   },
   "deadlines": {
-    "selectedD": 1792376460,
-    "selectedD2": 1792377300,
-    "baseD": 1792380240,
-    "baseD2": 1792381080,
+    "selectedD": 1792424160,
+    "selectedD2": 1792425000,
+    "baseD": 1792427940,
+    "baseD2": 1792428780,
     "claimPause": {
-      "start": 1792376640,
-      "end": 1792376940,
-      "extension": 300
+      "start": 1792424400,
+      "end": 1792424640,
+      "extension": 240
     },
-    "extendedD": 1792380540
+    "extendedD": 1792428180,
+    "claimDAt": 1792428120
   },
   "smoke": {
-    "contractAddress": "f4f0db648a2c3eafe9fa7041cbd264d39aaa6c2a69677ff0a74c82d8b6a06cc4",
+    "contractAddress": "140ad8c95402138219d5379a7250fe3cc389ecc7b96daf41b1cc5d9fafc5cef3",
     "deployment": {
-      "txHash": "0f5477fd0f2080a17326cb7ae899963a7ff64cae1c30ca4b37dee6a747c3cd82",
-      "blockHash": "bfca44094486f89cc5cf63fb0f4b791809c6cb42aee91deca872229fda9e58ef",
-      "blockHeight": 3042406,
-      "blockTimestampMs": 1792373802000,
+      "txHash": "6d0bb4e56ffa7dfdbd8e8f23442069cdc4be26e05d5d7f37510ee6de3bb8e9b9",
+      "blockHash": "fa51bd488f4257fbee92dd8630e16d0ddef31f25594250cdeeddbf3c47c24749",
+      "blockHeight": 3049781,
+      "blockTimestampMs": 1792421796000,
       "status": "SucceedEntirely"
     },
     "steps": [
@@ -89,15 +90,15 @@
         "expected": "accept",
         "outcome": "SucceedEntirely",
         "forgedClockSeconds": null,
-        "targetSeconds": 1792373860.8855,
-        "submittedAtSeconds": 1792373860.886,
-        "blockTimestampSeconds": 1792373868,
+        "targetSeconds": 1792422045,
+        "submittedAtSeconds": 1792422045.001,
+        "blockTimestampSeconds": 1792422048,
         "offsetFromIntervalStart": {
           "submitted": null,
           "block": null
         },
-        "txHash": "0aaaf82454878aa425ea6efe27bce82c5ea4741a31d8bcc071d71ed1c6479305",
-        "blockHeight": 3042416,
+        "txHash": "cc3e4894a01f4c4fcd3e1b41920e83a06f2eae46bc02ab3b0a649fa57ccbc330",
+        "blockHeight": 3049819,
         "rejection": null,
         "replayMatchesNetwork": true
       },
@@ -106,9 +107,9 @@
         "circuit": "commit",
         "expected": "reject",
         "outcome": "rejected-before-block",
-        "forgedClockSeconds": 1792372560,
-        "targetSeconds": 1792373890.886,
-        "submittedAtSeconds": 1792373890.888,
+        "forgedClockSeconds": 1792421160,
+        "targetSeconds": 1792422075.001,
+        "submittedAtSeconds": 1792422075.001,
         "blockTimestampSeconds": null,
         "offsetFromIntervalStart": {
           "submitted": null,
@@ -121,7 +122,7 @@
           "nodeErrorCode": "104",
           "errorClass": "FiberFailureImpl"
         },
-        "lateStartSeconds": 21.6,
+        "lateStartSeconds": 20.2,
         "replayMatchesNetwork": null
       }
     ]
@@ -134,15 +135,15 @@
       "outcome": "SucceedEntirely",
       "note": "honest commit inside weighting interval",
       "forgedClockSeconds": null,
-      "targetSeconds": 1792375245,
-      "submittedAtSeconds": 1792375245,
-      "blockTimestampSeconds": 1792375248,
+      "targetSeconds": 1792422945,
+      "submittedAtSeconds": 1792422945,
+      "blockTimestampSeconds": 1792422954.001,
       "offsetFromIntervalStart": {
         "submitted": 45,
-        "block": 48
+        "block": 54.001
       },
-      "txHash": "906baf796f28dd55d6016c000334d95f834ab0664e6eae9ba05cf6ea87d201c6",
-      "blockHeight": 3042627,
+      "txHash": "d762d4b43697116d4e1c21c848c610a3f50d0676436eebdec3cd697e718730bc",
+      "blockHeight": 3049959,
       "rejection": null,
       "replayMatchesNetwork": true
     },
@@ -153,15 +154,15 @@
       "outcome": "SucceedEntirely",
       "note": "honest commit; this slot never reveals in time",
       "forgedClockSeconds": null,
-      "targetSeconds": 1792375290,
-      "submittedAtSeconds": 1792375290.001,
-      "blockTimestampSeconds": 1792375296,
+      "targetSeconds": 1792422990,
+      "submittedAtSeconds": 1792422990,
+      "blockTimestampSeconds": 1792422996,
       "offsetFromIntervalStart": {
-        "submitted": 90.001,
+        "submitted": 90,
         "block": 96
       },
-      "txHash": "a9edfbe76513364118cace54f6cd1b20f9d18cbc204837944c7a8039ec4d36c3",
-      "blockHeight": 3042635,
+      "txHash": "48c1ee531b0497a5891976e7c5913e47633bd5d34e83c1fd6d9ee1c157bc1440",
+      "blockHeight": 3049965,
       "rejection": null,
       "replayMatchesNetwork": true
     },
@@ -171,9 +172,9 @@
       "expected": "reject",
       "outcome": "rejected-before-block",
       "note": "forged browser clock claims the previous interval; real network time is after its cutoff",
-      "forgedClockSeconds": 1792374360,
-      "targetSeconds": 1792375320,
-      "submittedAtSeconds": 1792375320,
+      "forgedClockSeconds": 1792422060,
+      "targetSeconds": 1792423020,
+      "submittedAtSeconds": 1792423020,
       "blockTimestampSeconds": null,
       "offsetFromIntervalStart": {
         "submitted": 120,
@@ -186,7 +187,7 @@
         "nodeErrorCode": "104",
         "errorClass": "FiberFailureImpl"
       },
-      "lateStartSeconds": 19.3,
+      "lateStartSeconds": 16,
       "replayMatchesNetwork": null
     },
     {
@@ -196,15 +197,15 @@
       "outcome": "SucceedEntirely",
       "note": "honest commit 60 s before the three-minute commit cutoff",
       "forgedClockSeconds": null,
-      "targetSeconds": 1792375860,
-      "submittedAtSeconds": 1792375860,
-      "blockTimestampSeconds": 1792375866,
+      "targetSeconds": 1792423560,
+      "submittedAtSeconds": 1792423560,
+      "blockTimestampSeconds": 1792423566,
       "offsetFromIntervalStart": {
         "submitted": 660,
         "block": 666
       },
-      "txHash": "eb67c08c0f4474163d3d34b848454f4f232bf038349bc5a91fdf77900dd3d4f6",
-      "blockHeight": 3042723,
+      "txHash": "d5fd198749af8ed08a5bf84d2778a463a13a159278443e4607eec86efe0b801e",
+      "blockHeight": 3050054,
       "rejection": null,
       "replayMatchesNetwork": true
     },
@@ -214,12 +215,12 @@
       "expected": "reject",
       "outcome": "rejected-before-block",
       "note": "forged clock inside window, real network time past cutoff",
-      "forgedClockSeconds": 1792375500,
-      "targetSeconds": 1792375924,
-      "submittedAtSeconds": 1792375924.01,
+      "forgedClockSeconds": 1792423200,
+      "targetSeconds": 1792423624,
+      "submittedAtSeconds": 1792423624.006,
       "blockTimestampSeconds": null,
       "offsetFromIntervalStart": {
-        "submitted": 724.01,
+        "submitted": 724.006,
         "block": null
       },
       "txHash": null,
@@ -237,12 +238,12 @@
       "expected": "reject",
       "outcome": "rejected-before-block",
       "note": "second late commitment",
-      "forgedClockSeconds": 1792375500,
-      "targetSeconds": 1792375990,
-      "submittedAtSeconds": 1792375990,
+      "forgedClockSeconds": 1792423200,
+      "targetSeconds": 1792423690,
+      "submittedAtSeconds": 1792423709.152,
       "blockTimestampSeconds": null,
       "offsetFromIntervalStart": {
-        "submitted": 790,
+        "submitted": 809.152,
         "block": null
       },
       "txHash": null,
@@ -252,6 +253,7 @@
         "nodeErrorCode": "104",
         "errorClass": "FiberFailureImpl"
       },
+      "lateStartSeconds": 42.3,
       "replayMatchesNetwork": null
     },
     {
@@ -260,9 +262,9 @@
       "expected": "reject",
       "outcome": "rejected-before-block",
       "note": "reveal before weighting closes; run 2 at E-8 was included at E+12, so this keeps 40 s",
-      "forgedClockSeconds": 1792376150,
-      "targetSeconds": 1792376060,
-      "submittedAtSeconds": 1792376060,
+      "forgedClockSeconds": 1792423850,
+      "targetSeconds": 1792423760,
+      "submittedAtSeconds": 1792423760,
       "blockTimestampSeconds": null,
       "offsetFromIntervalStart": {
         "submitted": 860,
@@ -284,16 +286,17 @@
       "outcome": "SucceedEntirely",
       "note": "honest reveal",
       "forgedClockSeconds": null,
-      "targetSeconds": 1792376145,
-      "submittedAtSeconds": 1792376145,
-      "blockTimestampSeconds": 1792376148,
+      "targetSeconds": 1792423845,
+      "submittedAtSeconds": 1792423845,
+      "blockTimestampSeconds": 1792423848,
       "offsetFromIntervalStart": {
         "submitted": 945,
         "block": 948
       },
-      "txHash": "b6d529526eb2a626965a98464a7e8fc1555f7b1ddb8ac97c046f4e6cd13bd0c0",
-      "blockHeight": 3042766,
+      "txHash": "5876dfebf8f648e9bf06ba7272038bcfbaa60e74e2100172e414237d8fcaaeac",
+      "blockHeight": 3050097,
       "rejection": null,
+      "lateStartSeconds": 17,
       "replayMatchesNetwork": true
     },
     {
@@ -303,15 +306,15 @@
       "outcome": "SucceedEntirely",
       "note": "honest reveal",
       "forgedClockSeconds": null,
-      "targetSeconds": 1792376190,
-      "submittedAtSeconds": 1792376190,
-      "blockTimestampSeconds": 1792376196,
+      "targetSeconds": 1792423890,
+      "submittedAtSeconds": 1792423890,
+      "blockTimestampSeconds": 1792423896,
       "offsetFromIntervalStart": {
         "submitted": 990,
         "block": 996
       },
-      "txHash": "eb73aa9d3068d5be59791f7ae7b58aaef6c7630648d045340c776312f28ddaa8",
-      "blockHeight": 3042772,
+      "txHash": "e76aec31d2e1ebaca5b6bfd9ad1f2ddc6fdaa812362f2f377aee6dbe058ddc1e",
+      "blockHeight": 3050104,
       "rejection": null,
       "replayMatchesNetwork": true
     },
@@ -321,12 +324,12 @@
       "expected": "reject",
       "outcome": "rejected-before-block",
       "note": "forged clock past the reveal window; real network time is inside it",
-      "forgedClockSeconds": 1792376430,
-      "targetSeconds": 1792376250,
-      "submittedAtSeconds": 1792376250,
+      "forgedClockSeconds": 1792424130,
+      "targetSeconds": 1792423950,
+      "submittedAtSeconds": 1792423950.001,
       "blockTimestampSeconds": null,
       "offsetFromIntervalStart": {
-        "submitted": 1050,
+        "submitted": 1050.001,
         "block": null
       },
       "txHash": null,
@@ -344,9 +347,9 @@
       "expected": "reject",
       "outcome": "rejected-before-block",
       "note": "late reveal with forged in-window clock",
-      "forgedClockSeconds": 1792376200,
-      "targetSeconds": 1792376415,
-      "submittedAtSeconds": 1792376415,
+      "forgedClockSeconds": 1792423900,
+      "targetSeconds": 1792424115,
+      "submittedAtSeconds": 1792424115,
       "blockTimestampSeconds": null,
       "offsetFromIntervalStart": {
         "submitted": 1215,
@@ -367,9 +370,9 @@
       "expected": "reject",
       "outcome": "rejected-before-block",
       "note": "caller asserts a selection time an hour in the future",
-      "forgedClockSeconds": 1792380050,
-      "targetSeconds": 1792376450,
-      "submittedAtSeconds": 1792376450,
+      "forgedClockSeconds": 1792427750,
+      "targetSeconds": 1792424150,
+      "submittedAtSeconds": 1792424150,
       "blockTimestampSeconds": null,
       "offsetFromIntervalStart": {
         "submitted": 1250,
@@ -391,15 +394,15 @@
       "outcome": "SucceedEntirely",
       "note": "honest finalization after the reveal window",
       "forgedClockSeconds": null,
-      "targetSeconds": 1792376495,
-      "submittedAtSeconds": 1792376495,
-      "blockTimestampSeconds": 1792376502,
+      "targetSeconds": 1792424190,
+      "submittedAtSeconds": 1792424190,
+      "blockTimestampSeconds": 1792424196,
       "offsetFromIntervalStart": {
-        "submitted": 1295,
-        "block": 1302
+        "submitted": 1290,
+        "block": 1296
       },
-      "txHash": "56aa9504f3dc64bc194b0097f44fc3b9c1723bfebe14cb20447cf6994051592d",
-      "blockHeight": 3042821,
+      "txHash": "01010f2302f132ee15791dd6eea4c46343e2c4209ec4d8b632256eeead58d7cc",
+      "blockHeight": 3050152,
       "rejection": null,
       "replayMatchesNetwork": true
     },
@@ -409,15 +412,15 @@
       "expected": "accept",
       "outcome": "SucceedEntirely",
       "forgedClockSeconds": null,
-      "targetSeconds": 1792376570,
-      "submittedAtSeconds": 1792376570.001,
-      "blockTimestampSeconds": 1792376574,
+      "targetSeconds": 1792424270,
+      "submittedAtSeconds": 1792424270,
+      "blockTimestampSeconds": 1792424274,
       "offsetFromIntervalStart": {
-        "submitted": 470.001,
+        "submitted": 470,
         "block": 474
       },
-      "txHash": "3ebe264009f626cb48adafab9a912a1fd1334989323c9800cd5c353b79fc40b1",
-      "blockHeight": 3042833,
+      "txHash": "6127e3845a85a04df163862ff5c436b3d13b4dfe16f3ad0f326e51a8ec2a2744",
+      "blockHeight": 3050164,
       "rejection": null,
       "replayMatchesNetwork": true
     },
@@ -427,15 +430,15 @@
       "expected": "accept",
       "outcome": "SucceedEntirely",
       "forgedClockSeconds": null,
-      "targetSeconds": 1792376620,
-      "submittedAtSeconds": 1792376620.001,
-      "blockTimestampSeconds": 1792376622.001,
+      "targetSeconds": 1792424320,
+      "submittedAtSeconds": 1792424320,
+      "blockTimestampSeconds": 1792424322,
       "offsetFromIntervalStart": {
-        "submitted": 520.001,
-        "block": 522.001
+        "submitted": 520,
+        "block": 522
       },
-      "txHash": "e475e854a637e4633e2b3cb087095240403acacb977dcc896d96471a32ad989e",
-      "blockHeight": 3042840,
+      "txHash": "656f4cd40bebe0f58fca1df7edf20e227e76ae47c956caac110bf2e173c121ca",
+      "blockHeight": 3050171,
       "rejection": null,
       "replayMatchesNetwork": true
     },
@@ -444,17 +447,17 @@
       "circuit": "pause",
       "expected": "accept",
       "outcome": "SucceedEntirely",
-      "note": "claim-blocking pause scoped to draw D only",
+      "note": "claim-blocking pause scoped to draw D only; runs from the end of its bucket (E + 600) to E + 840",
       "forgedClockSeconds": null,
-      "targetSeconds": 1792376675,
-      "submittedAtSeconds": 1792376675.001,
-      "blockTimestampSeconds": 1792376682,
+      "targetSeconds": 1792424370,
+      "submittedAtSeconds": 1792424370.001,
+      "blockTimestampSeconds": 1792424376,
       "offsetFromIntervalStart": {
-        "submitted": 1475.001,
-        "block": 1482
+        "submitted": 1470.001,
+        "block": 1476
       },
-      "txHash": "faa54e45297349c298f2133e2de9a5f581aeea2efc493fefab4672c822ed51ce",
-      "blockHeight": 3042849,
+      "txHash": "48195e939a4d4ba6e043cd3768d64966e8fd8d39e482b7910a16b48a23221eed",
+      "blockHeight": 3050179,
       "rejection": null,
       "replayMatchesNetwork": true
     },
@@ -464,9 +467,9 @@
       "expected": "reject",
       "outcome": "rejected-before-block",
       "note": "forged pre-pause clock; real network time is inside the pause",
-      "forgedClockSeconds": 1792376550,
-      "targetSeconds": 1792376740,
-      "submittedAtSeconds": 1792376740,
+      "forgedClockSeconds": 1792424250,
+      "targetSeconds": 1792424440,
+      "submittedAtSeconds": 1792424440,
       "blockTimestampSeconds": null,
       "offsetFromIntervalStart": {
         "submitted": 1540,
@@ -488,15 +491,15 @@
       "outcome": "SucceedEntirely",
       "note": "margin probe: honest commit 40 s before the cutoff",
       "forgedClockSeconds": null,
-      "targetSeconds": 1792376780,
-      "submittedAtSeconds": 1792376780,
-      "blockTimestampSeconds": 1792376784,
+      "targetSeconds": 1792424480,
+      "submittedAtSeconds": 1792424480.001,
+      "blockTimestampSeconds": 1792424484,
       "offsetFromIntervalStart": {
-        "submitted": 680,
+        "submitted": 680.001,
         "block": 684
       },
-      "txHash": "a52d0a5886c50b2ac0ec93fbb7c56281e6891f480ede451ac4a433d0719be3a9",
-      "blockHeight": 3042863,
+      "txHash": "f650d48a24919c7efd598fd0ed0bb7fd85a65a3f114228cb04ecb8361f2afbec",
+      "blockHeight": 3050196,
       "rejection": null,
       "replayMatchesNetwork": true
     },
@@ -507,17 +510,17 @@
       "outcome": "SucceedEntirely",
       "note": "margin probe: honest commit 15 s before the cutoff",
       "forgedClockSeconds": null,
-      "targetSeconds": 1792376805,
-      "submittedAtSeconds": 1792376805.747,
-      "blockTimestampSeconds": 1792376808,
+      "targetSeconds": 1792424505,
+      "submittedAtSeconds": 1792424505,
+      "blockTimestampSeconds": 1792424508,
       "offsetFromIntervalStart": {
-        "submitted": 705.747,
+        "submitted": 705,
         "block": 708
       },
-      "txHash": "00bd27c964bf69a270ddfb97caa381b97a808409a560abd273426f2641d89905",
-      "blockHeight": 3042867,
+      "txHash": "92517e54f5aa167a55776ba5cd3f942ccb77e1256060a0670083ffeb04263667",
+      "blockHeight": 3050199,
       "rejection": null,
-      "lateStartSeconds": 23.3,
+      "lateStartSeconds": 19.3,
       "replayMatchesNetwork": true
     },
     {
@@ -527,15 +530,15 @@
       "outcome": "SucceedEntirely",
       "note": "unrelated pause: must not extend any claim deadline",
       "forgedClockSeconds": null,
-      "targetSeconds": 1792376980,
-      "submittedAtSeconds": 1792376980,
-      "blockTimestampSeconds": 1792376982,
+      "targetSeconds": 1792424670,
+      "submittedAtSeconds": 1792424670,
+      "blockTimestampSeconds": 1792424676,
       "offsetFromIntervalStart": {
-        "submitted": 1780,
-        "block": 1782
+        "submitted": 1770,
+        "block": 1776
       },
-      "txHash": "f37e1b73b5d55e42b1353ecd10fa17000741ea814a7a1b9c3039567d6f99c51a",
-      "blockHeight": 3042893,
+      "txHash": "830f735a5692b7863b4f603046d7e399f2d197814f5b3b5a1873b1ea1f88890e",
+      "blockHeight": 3050224,
       "rejection": null,
       "replayMatchesNetwork": true
     },
@@ -545,15 +548,15 @@
       "expected": "accept",
       "outcome": "SucceedEntirely",
       "forgedClockSeconds": null,
-      "targetSeconds": 1792377045,
-      "submittedAtSeconds": 1792377045,
-      "blockTimestampSeconds": 1792377048,
+      "targetSeconds": 1792424745,
+      "submittedAtSeconds": 1792424745,
+      "blockTimestampSeconds": 1792424748,
       "offsetFromIntervalStart": {
         "submitted": 945,
         "block": 948
       },
-      "txHash": "33fb7fc62254805afd8776358fac1e9c117602d0071c92a0c6c0b9af94baba4a",
-      "blockHeight": 3042904,
+      "txHash": "70a267f4f600140749aeb64c8fa1b9de48b67644a09ad725f71a02ddb0653612",
+      "blockHeight": 3050236,
       "rejection": null,
       "replayMatchesNetwork": true
     },
@@ -563,15 +566,15 @@
       "expected": "accept",
       "outcome": "SucceedEntirely",
       "forgedClockSeconds": null,
-      "targetSeconds": 1792377090,
-      "submittedAtSeconds": 1792377090,
-      "blockTimestampSeconds": 1792377096,
+      "targetSeconds": 1792424790,
+      "submittedAtSeconds": 1792424790.001,
+      "blockTimestampSeconds": 1792424796,
       "offsetFromIntervalStart": {
-        "submitted": 990,
+        "submitted": 990.001,
         "block": 996
       },
-      "txHash": "fc1569b1631ccdf36739c817da94ad5299ec1d474d8ff8fac037a2d356f66fbf",
-      "blockHeight": 3042910,
+      "txHash": "c0c8d28758859c483bc94c87901a309a598c692cdbc3f0105d7fd3a85a447fe3",
+      "blockHeight": 3050244,
       "rejection": null,
       "replayMatchesNetwork": true
     },
@@ -581,15 +584,15 @@
       "expected": "accept",
       "outcome": "SucceedEntirely",
       "forgedClockSeconds": null,
-      "targetSeconds": 1792377335,
-      "submittedAtSeconds": 1792377335,
-      "blockTimestampSeconds": 1792377342,
+      "targetSeconds": 1792425030,
+      "submittedAtSeconds": 1792425030,
+      "blockTimestampSeconds": 1792425036,
       "offsetFromIntervalStart": {
-        "submitted": 1235,
-        "block": 1242
+        "submitted": 1230,
+        "block": 1236
       },
-      "txHash": "f248407d8e6b1f73f2c8752e629b6d48574d8b16a302c418c8eb57bd9173f7fa",
-      "blockHeight": 3042947,
+      "txHash": "b12741c7c15751cab04f658374f855b309a89e5d873cd3a35ab384b06773aa90",
+      "blockHeight": 3050281,
       "rejection": null,
       "replayMatchesNetwork": true
     },
@@ -598,17 +601,17 @@
       "circuit": "claim",
       "expected": "accept",
       "outcome": "SucceedEntirely",
-      "note": "targets block time after the base deadline but just before the pause-extended deadline",
+      "note": "targets 60 s before the pause-extended deadline, past the base deadline",
       "forgedClockSeconds": null,
-      "targetSeconds": 1792380526,
-      "submittedAtSeconds": 1792380526,
-      "blockTimestampSeconds": 1792380528,
+      "targetSeconds": 1792428120,
+      "submittedAtSeconds": 1792428120,
+      "blockTimestampSeconds": 1792428126,
       "offsetFromIntervalStart": {
-        "submitted": 5326,
-        "block": 5328
+        "submitted": 5220,
+        "block": 5226
       },
-      "txHash": "92a5cad1d2573b4460f66dcf5d09b4a741edbfa1386388015438d2d1250862d4",
-      "blockHeight": 3043440,
+      "txHash": "28d3b7fb645b98f3d7f2018c6136d5241b27e27642a93c8544749a62620c832c",
+      "blockHeight": 3050754,
       "rejection": null,
       "replayMatchesNetwork": true
     },
@@ -618,9 +621,9 @@
       "expected": "reject",
       "outcome": "rejected-before-block",
       "note": "draw D2 was never paused for claims: scoped pause and unrelated pause give no grace",
-      "forgedClockSeconds": 1792380880,
-      "targetSeconds": 1792381092,
-      "submittedAtSeconds": 1792381092,
+      "forgedClockSeconds": 1792428580,
+      "targetSeconds": 1792428792,
+      "submittedAtSeconds": 1792428792,
       "blockTimestampSeconds": null,
       "offsetFromIntervalStart": {
         "submitted": 4992,
@@ -639,32 +642,40 @@
   "mismatches": [],
   "claimWindow": {
     "D": {
-      "finalizeBlockSeconds": 1792376502,
-      "finalityObservedAtSeconds": 1792376525.408,
-      "baseDeadlineSeconds": 1792380240,
-      "fromBlockMinutes": 62.3,
-      "fromObservedFinalityMinutes": 61.91
+      "finalizeBlockSeconds": 1792424196,
+      "finalityObservedAtSeconds": 1792424210.325,
+      "baseDeadlineSeconds": 1792427940,
+      "fromBlockMinutes": 62.4,
+      "fromObservedFinalityMinutes": 62.16
     },
     "D2": {
-      "finalizeBlockSeconds": 1792377342,
-      "finalityObservedAtSeconds": 1792377362.632,
-      "baseDeadlineSeconds": 1792381080,
-      "fromBlockMinutes": 62.3,
-      "fromObservedFinalityMinutes": 61.96
+      "finalizeBlockSeconds": 1792425036,
+      "finalityObservedAtSeconds": 1792425056.322,
+      "baseDeadlineSeconds": 1792428780,
+      "fromBlockMinutes": 62.4,
+      "fromObservedFinalityMinutes": 62.06
     },
     "pauseExtendedClaim": {
-      "deadline": 1792380540,
-      "blockSeconds": 1792380528,
-      "secondsPastBaseDeadline": 288
+      "deadline": 1792428180,
+      "blockSeconds": 1792428126,
+      "secondsPastBaseDeadline": 186
     }
   },
   "inclusionLatencySeconds": {
     "count": 16,
     "min": 2,
-    "median": 4,
-    "max": 7
+    "median": 6,
+    "max": 9.000999927520752
   },
   "cutoffObservations": [
+    {
+      "run": "final",
+      "id": "D.commit.slot3.late2",
+      "secondsBeforeCutoffAtSubmission": -89.2,
+      "secondsBeforeCutoffAtBlock": null,
+      "accepted": false,
+      "nodeErrorCode": "104"
+    },
     {
       "run": "4",
       "id": "D.commit.slot3.late2",
@@ -674,7 +685,7 @@
       "nodeErrorCode": "104"
     },
     {
-      "run": "final",
+      "run": "1",
       "id": "D.commit.slot3.late2",
       "secondsBeforeCutoffAtSubmission": -70,
       "secondsBeforeCutoffAtBlock": null,
@@ -682,7 +693,7 @@
       "nodeErrorCode": "104"
     },
     {
-      "run": "1",
+      "run": "6",
       "id": "D.commit.slot3.late2",
       "secondsBeforeCutoffAtSubmission": -70,
       "secondsBeforeCutoffAtBlock": null,
@@ -714,6 +725,14 @@
       "nodeErrorCode": null
     },
     {
+      "run": "6",
+      "id": "D.commit.slot3.late",
+      "secondsBeforeCutoffAtSubmission": -4,
+      "secondsBeforeCutoffAtBlock": null,
+      "accepted": false,
+      "nodeErrorCode": "104"
+    },
+    {
       "run": "1",
       "id": "D.commit.slot1.boundary",
       "secondsBeforeCutoffAtSubmission": 9,
@@ -730,9 +749,17 @@
       "nodeErrorCode": "104"
     },
     {
-      "run": "final",
+      "run": "6",
       "id": "D2.commit.slot3.cutoffProbe15",
       "secondsBeforeCutoffAtSubmission": 14.3,
+      "secondsBeforeCutoffAtBlock": 12,
+      "accepted": true,
+      "nodeErrorCode": null
+    },
+    {
+      "run": "final",
+      "id": "D2.commit.slot3.cutoffProbe15",
+      "secondsBeforeCutoffAtSubmission": 15,
       "secondsBeforeCutoffAtBlock": 12,
       "accepted": true,
       "nodeErrorCode": null
@@ -754,6 +781,14 @@
       "nodeErrorCode": null
     },
     {
+      "run": "6",
+      "id": "D2.commit.slot2.cutoffProbe40",
+      "secondsBeforeCutoffAtSubmission": 40,
+      "secondsBeforeCutoffAtBlock": 36,
+      "accepted": true,
+      "nodeErrorCode": null
+    },
+    {
       "run": "final",
       "id": "D.commit.slot1.boundary",
       "secondsBeforeCutoffAtSubmission": 60,
@@ -763,6 +798,14 @@
     },
     {
       "run": "4",
+      "id": "D.commit.slot1.boundary",
+      "secondsBeforeCutoffAtSubmission": 60,
+      "secondsBeforeCutoffAtBlock": 54,
+      "accepted": true,
+      "nodeErrorCode": null
+    },
+    {
+      "run": "6",
       "id": "D.commit.slot1.boundary",
       "secondsBeforeCutoffAtSubmission": 60,
       "secondsBeforeCutoffAtBlock": 54,
