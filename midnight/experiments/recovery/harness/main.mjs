@@ -7,7 +7,7 @@ import {idbStore,qualifyStorage} from '../idb-store.mjs';
 import {acquireWriter} from '../writer-lock.mjs';
 import {createProbeRuntime} from '../probe-runtime.mjs';
 import {isFreshAgainst} from '../ledger-view.mjs';
-import {connectLace,summarizeConfiguration,verifyBinding,walletSubmitter} from './lace.mjs';
+import {connectLace,labelled,summarizeConfiguration,verifyBinding,walletSubmitter} from './lace.mjs';
 import {toHex,fromHex} from '../codec.mjs';
 
 void Contract;
@@ -69,11 +69,11 @@ const harness={
   async storage(){return qualifyStorage({indexedDB,storage:navigator.storage,locks:navigator.locks});},
   async connect() {
     const {api,rdns,apiVersion,configuration}=await connectLace({midnight:window.midnight});
-    const shielded=await api.getShieldedAddresses();
+    const shielded=await labelled('getShieldedAddresses',()=>api.getShieldedAddresses());
     state.lace={api,shielded};
     const summary=summarizeConfiguration(configuration);
     note('connected',{rdns,apiVersion,...summary});
-    return {rdns,apiVersion,...summary,addressDigest:await sha((await api.getUnshieldedAddress()).unshieldedAddress)};
+    return {rdns,apiVersion,...summary,addressDigest:await sha((await labelled('getUnshieldedAddress',()=>api.getUnshieldedAddress())).unshieldedAddress)};
   },
   async funding() {
     const api=state.lace.api;

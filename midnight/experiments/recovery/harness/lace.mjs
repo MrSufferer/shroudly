@@ -19,16 +19,27 @@ export function summarizeConfiguration(configuration) {
   return {networkId:String(configuration.networkId),proverLoopback,proverConfigured:typeof prover==='string'&&prover.length>0};
 }
 
-export async function connectLace({midnight,networkId='preprod'}) {
+// Lace rejects with an APIError whose message is just "APIError"; keep the call name and its code.
+export const labelled=async(call,fn)=>{
+  try{return await fn();}
+  catch(e){throw Error(`${call}: ${[e?.code,e?.reason??e?.message].filter(Boolean).join(' ').slice(0,80)}`);}
+};
+
+export async function connectLace({midnight,networkId='preprod',unlockTimeoutMs=300_000,sleep=ms=>new Promise(r=>setTimeout(r,ms))}) {
   const [candidate]=discoverWallets(midnight);
   if(!candidate)throw Error('Lace was not found in window.midnight');
   let api;
   try{api=await candidate.wallet.connect(networkId);}
   catch{throw Error('Lace connection was rejected or failed');}
-  const status=await api.getConnectionStatus();
+  // A previously approved origin connects at once even while Lace is locked; wait for the Operator to unlock.
+  let status;
+  for(const deadline=Date.now()+unlockTimeoutMs;;) {
+    try{status=await labelled('getConnectionStatus',()=>api.getConnectionStatus());break;}
+    catch(e){if(!/locked/i.test(e.message)||Date.now()>deadline)throw e;await sleep(2000);}
+  }
   if(status?.status!=='connected')throw Error('Lace is not connected');
   if(status.networkId!==networkId)throw Error('Lace is connected to the wrong network');
-  const configuration=await api.getConfiguration();
+  const configuration=await labelled('getConfiguration',()=>api.getConfiguration());
   if(configuration?.networkId!==networkId)throw Error('Lace is connected to the wrong network');
   return {api,rdns:candidate.rdns,name:candidate.name,apiVersion:candidate.apiVersion,configuration};
 }

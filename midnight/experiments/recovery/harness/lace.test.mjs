@@ -31,6 +31,15 @@ test('connection requires the Preprod network and an active connection', async()
   await assert.rejects(connectLace({midnight:{a:wallet(connected(),{connect:async()=>{throw Error('User rejected');}})}}),/rejected/);
 });
 
+test('a locked Lace is polled until the Operator unlocks it, and gives up after the timeout', async()=>{
+  const locked=()=>Object.assign(Error('APIError'),{code:'Rejected',reason:'Wallet is locked. Please unlock the wallet first.'});
+  let calls=0;
+  const unlocksOnThird=connected({getConnectionStatus:async()=>{if(++calls<3)throw locked();return {status:'connected',networkId:'preprod'};}});
+  await connectLace({midnight:{a:wallet(unlocksOnThird)},sleep:async()=>{}});
+  assert.equal(calls,3);
+  await assert.rejects(connectLace({midnight:{a:wallet(connected({getConnectionStatus:async()=>{throw locked();}}))},unlockTimeoutMs:0,sleep:async()=>{}}),/getConnectionStatus: Rejected Wallet is locked/);
+});
+
 test('configuration summary reports whether proving is participant-local without exposing endpoints', ()=>{
   assert.deepEqual(summarizeConfiguration(configuration),{networkId:'preprod',proverLoopback:true,proverConfigured:true});
   assert.deepEqual(summarizeConfiguration({...configuration,proverServerUri:'https://hosted.example'}),{networkId:'preprod',proverLoopback:false,proverConfigured:true});
