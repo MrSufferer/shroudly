@@ -41,9 +41,13 @@ test('a locked Lace is polled until the Operator unlocks it, and gives up after 
 });
 
 test('configuration summary reports whether proving is participant-local without exposing endpoints', ()=>{
-  assert.deepEqual(summarizeConfiguration(configuration),{networkId:'preprod',proverLoopback:true,proverConfigured:true});
-  assert.deepEqual(summarizeConfiguration({...configuration,proverServerUri:'https://hosted.example'}),{networkId:'preprod',proverLoopback:false,proverConfigured:true});
-  assert.deepEqual(summarizeConfiguration({...configuration,proverServerUri:undefined}),{networkId:'preprod',proverLoopback:null,proverConfigured:false});
+  const endpointProviders={indexer:'other',indexerWs:'other',node:'other'};
+  assert.deepEqual(summarizeConfiguration(configuration),{networkId:'preprod',proverLoopback:true,proverConfigured:true,endpointProviders});
+  assert.deepEqual(summarizeConfiguration({...configuration,proverServerUri:'https://hosted.example'}),{networkId:'preprod',proverLoopback:false,proverConfigured:true,endpointProviders});
+  assert.deepEqual(summarizeConfiguration({...configuration,proverServerUri:undefined}),{networkId:'preprod',proverLoopback:null,proverConfigured:false,endpointProviders});
+  const live=summarizeConfiguration({...configuration,indexerUri:'https://midnight-preprod.blockfrost.io/api/v0?project_id=secret',indexerWsUri:'wss://indexer.preprod.midnight.network/ws',substrateNodeUri:'not a url'});
+  assert.deepEqual(live.endpointProviders,{indexer:'blockfrost',indexerWs:'midnight.network',node:null});
+  assert.ok(!JSON.stringify(live).includes('secret'));
 });
 
 test('account binding is accepted only for a genuine signature over the scope challenge', async()=>{

@@ -10,13 +10,21 @@ export function discoverWallets(midnight) {
     .map(([key,wallet])=>({key,rdns:String(wallet.rdns),name:String(wallet.name),apiVersion:String(wallet.apiVersion),wallet}));
 }
 
+// Which provider serves each endpoint, by hostname suffix only: never the URL, which may carry a token.
+const provider=uri=>{
+  let host;try{host=new URL(uri).hostname;}catch{return null;}
+  if(['127.0.0.1','localhost','[::1]'].includes(host))return 'loopback';
+  return host.endsWith('.blockfrost.io')?'blockfrost':host.endsWith('.midnight.network')?'midnight.network':'other';
+};
+
 export function summarizeConfiguration(configuration) {
   const prover=configuration.proverServerUri;
   let proverLoopback=null;
   if(typeof prover==='string'&&prover) {
     try{proverLoopback=['127.0.0.1','localhost','[::1]'].includes(new URL(prover).hostname);}catch{proverLoopback=false;}
   }
-  return {networkId:String(configuration.networkId),proverLoopback,proverConfigured:typeof prover==='string'&&prover.length>0};
+  return {networkId:String(configuration.networkId),proverLoopback,proverConfigured:typeof prover==='string'&&prover.length>0,
+    endpointProviders:{indexer:provider(configuration.indexerUri),indexerWs:provider(configuration.indexerWsUri),node:provider(configuration.substrateNodeUri)}};
 }
 
 // Lace rejects with an APIError whose message is just "APIError"; keep the call name and its code.
