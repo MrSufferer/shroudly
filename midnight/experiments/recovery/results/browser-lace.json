@@ -1,0 +1,21 @@
+{
+  "format": "shroudly-recovery-browser-lace-v1",
+  "network": "preprod",
+  "contract": "2ffeca1b1796752c0df2c4cda0bae08105b2a777c1e76d89318dd73cd3d8e7f5",
+  "provenance": "Transcribed from the console output of the 2026-10-19 lace-mode run; that run's own results file was overwritten by a later launch that aborted on a held Chrome profile, so per-step timestamps are not available and none are given.",
+  "proofServer": "midnightntwrk/proof-server:8.1.3 on 127.0.0.1:6300",
+  "steps": [
+    {"step":"storage","indexedDB":true,"strictDurability":true,"webLocks":true,"persistenceRequested":true,"persisted":false,"storageApiPersisted":false,"allowsNewContributions":false},
+    {"step":"connected","rdns":"io.lace.wallet","apiVersion":"4.0.1","networkId":"preprod","proverLoopback":true,"proverConfigured":true,"endpointProviders":{"indexer":"blockfrost","indexerWs":"blockfrost","node":"blockfrost"},"addressDigest":"7283905ea7e528bb"},
+    {"step":"funding","dustPositive":false,"dustCapPositive":false,"unshieldedTokenTypes":0,"nightPositive":false}
+  ],
+  "result": "aborted",
+  "abortCategory": "Lace account has no DUST; fund and register DUST in Lace, then rerun",
+  "operatorObservations": [
+    "An earlier lace-mode run saw one unshielded token type with a positive NIGHT balance and a DUST cap of 0.",
+    "The Operator then signed DUST registration in Lace; the local proof server proved it, and about two minutes later Lace reported 'network timeout' (Error Code UNKNOWN).",
+    "Lace kept the registration pending for more than two hours, showed NIGHT as 0 and never showed a positive DUST cap.",
+    "Re-importing the wallet from its recovery phrase left Lace on loading placeholders without completing sync."
+  ],
+  "unproven": ["Lace-funded balancing","Lace submission","Lace-path finality, indexer visibility and fresh ledger query","account binding against a live Lace signature"]
+}

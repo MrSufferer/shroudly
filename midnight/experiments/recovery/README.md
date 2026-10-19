@@ -52,7 +52,43 @@ Chrome) and prints `OPERATOR ACTION:` before each Lace prompt. It records only
 sanitized booleans, digests, ledger rounds and outcomes. The provider credential
 stays inside the relay process; it is never in page JavaScript.
 
+## Evidence
+
+All live runs used Preprod deployment `2ffeca1b…e7f5` and proof server
+`midnightntwrk/proof-server:8.1.3` on loopback.
+
+| Acceptance item | Evidence | Status |
+| --- | --- | --- |
+| AC1 Lace connection, local proving config | `results/browser-lace.json` `connected`: `io.lace.wallet` 4.0.1 on `preprod`, loopback prover, Blockfrost endpoints | Proven |
+| AC1 Lace account binding, funding, submission, finality via Lace | `results/browser-lace.json` | **Unproven** (see Known limits) |
+| AC1 proving, funding, submission, finality, indexer visibility, fresh ledger query | `results/live-preprod-node.json` (`deployed`, `register`, `restart-reconcile-*`), protected wallet in place of Lace | Proven without Lace |
+| AC1 browser builds a real unproven call; no wallet refuses to connect | `results/browser-preflight.json` | Proven |
+| AC2 Recovery Kit restore; stale kit cannot act | `live-preprod-node.json` `restore-current-kit-fresh-profile`, `advance-from-restored-kit`, `restore-older-kit-is-stale`, `stale-kit-cannot-act` | Proven |
+| AC2 state and intent durable before submit; blocked on failed write | `live-preprod-node.json` `crash-before-submission`; `browser-qualification.json` `quotaFailure` (0 submitted) | Proven |
+| AC2 keys only in session memory | `harness/main.mjs` (kit key never stored); `journal.test.mjs` "nothing in storage contains plaintext witness material or the session key" | Proven by construction and tests |
+| AC3 crash before submit / during observation / after finality / during handoff | `live-preprod-node.json` `crash-*` and `restart-reconcile-*` steps, no duplicate submission | Proven (Node) |
+| AC4 isolation | `live-preprod-node.json` `init-bob-same-deployment`, `bob-unregistered-while-alice-registered` | Proven |
+| AC4 IndexedDB durability, single-writer exclusion | `browser-qualification.json` `abruptKill` (SIGKILL), `writerExclusion` | Proven (headless Chrome) |
+| AC4 sanitized evidence, unresolved limitations | All `results/*.json` hold booleans, digests, rounds and outcomes only; Known limits below | Proven |
+
 ## Known limits
+
+- **Genuine Lace funding and submission are unproven.** Lace connected live on
+  Preprod with the loopback prover, but its DUST registration failed with a
+  "network timeout" after the local proof server had proved it, stayed pending
+  for more than two hours, NIGHT then showed 0, and a recovery-phrase re-import
+  never finished syncing. The Lace run therefore stopped at the funding check
+  and never reached account binding, balancing or submission. The same
+  journal/actions code reached Preprod finality through the Node participant.
+- `results/browser-lace.json` was transcribed from console output because a
+  later aborted launch overwrote the run's own file; it has no per-step times.
+- Crash-and-reconcile over a real Lace handoff was not run; the browser crash
+  points are covered only by the synthetic Playwright qualification.
+- `persisted` storage was also not granted in the headed Lace profile, so that
+  profile would block new contributions.
+- `indexer.preprod.midnight.network` is decommissioned; Lace and the relay use
+  Blockfrost. `midnight/version-profile.json` still pins proof server 8.1.0
+  while evidence used 8.1.3; the profile is left for its owner to update.
 
 - Web Locks exclude only tabs of one browser profile. Copied Recovery Kits on
   several devices are unsupported and not detected (ADR 0029).
