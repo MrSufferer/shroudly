@@ -21,11 +21,30 @@ test('a claim-blocking pause blocks the claim and extends the deadline by its re
   const {p, base} = selected();
   pause(p, base - 1000, CLAIMS, 0n, 600);
   const r = record(p, 0);
-  assert.equal(length(r), 600 + BUCKET);
+  // Start is the end of the pause transaction's bucket, never earlier than its block time.
+  assert.equal(Number(r.start), Number(bucketOf(base - 1000) + 1n) * BUCKET);
+  assert.equal(length(r), 600);
+  p.run(Number(r.start) - 1, 'claim', DRAW);
+});
+
+test('a claims pause blocks claims from the end of its bucket', () => {
+  const {p, base} = selected();
+  pause(p, base - 1000, CLAIMS, 0n, 600);
+  const r = record(p, 0);
   assert.throws(() => p.run(Number(r.start), 'claim', DRAW), /claims paused/);
   assert.throws(() => p.run(Number(r.end) - 1, 'claim', DRAW), /claims paused/);
   assert.throws(() => p.run(base + length(r), 'claim', DRAW), /claim window/);
   p.run(base + length(r) - 1, 'claim', DRAW);
+});
+
+test('a claims pause landing after the deadline, even inside its final bucket, cannot reopen the window', () => {
+  for (const offset of [-BUCKET + 1, -1, 0, 15, BUCKET + 15]) {
+    const {p, base} = selected();
+    pause(p, base + offset, CLAIMS, 0n, 600);
+    assert.throws(() => p.run(base + 15, 'claim', DRAW), /claim window|claims paused/);
+    // Under a backdated start the deadline would have moved to base + 660.
+    assert.throws(() => p.run(Number(record(p, 0).end) + 20, 'claim', DRAW), /claim window/);
+  }
 });
 
 test('unrelated and other-draw pauses never extend the deadline', () => {
@@ -71,6 +90,25 @@ test('sequential claim pauses accumulate, including one starting inside the exte
   const total = length(first) + length(record(p, 1));
   assert.throws(() => p.run(base + total, 'claim', DRAW), /claim window/);
   p.run(base + total - 1, 'claim', DRAW);
+});
+
+test('a running deposits pause does not block a claims pause, and the claims pause still extends the deadline', () => {
+  const {p, base} = selected();
+  pause(p, base - 2000, DEPOSITS, 0n, SCHEDULE.MAX_PAUSE);
+  pause(p, base - 1000, CLAIMS, DRAW, 600);
+  assert.throws(() => p.run(base + 600, 'claim', DRAW), /claim window/);
+  p.run(base + 599, 'claim', DRAW);
+});
+
+test('a claims pause may not overlap the latest claims pause, even with a deposits pause recorded in between', () => {
+  const {p, base} = selected();
+  pause(p, base - 2000, CLAIMS, 0n, 1500);
+  pause(p, base - 1900, DEPOSITS, 0n, 60);
+  assert.throws(() => pause(p, base - 1000, CLAIMS, DRAW, 600), /must not overlap/);
+  pause(p, Number(record(p, 0).end), CLAIMS, DRAW, 600);
+  // Both claims pauses fold into the deadline; the deposits pause between them adds nothing.
+  assert.throws(() => p.run(base + 1500 + 600, 'claim', DRAW), /claim window/);
+  p.run(base + 1500 + 600 - 1, 'claim', DRAW);
 });
 
 test('pause authority, bounds, ordering and history capacity are enforced', () => {

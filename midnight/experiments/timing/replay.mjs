@@ -14,7 +14,8 @@ export function replay(records) {
   let state = contract.initialState(RT.createConstructorContext({}, '0'.repeat(64))).currentContractState;
   const chainOrder = records.map((record, index) => ({record, index}))
     .filter(({record}) => record.blockTimestampMs != null)
-    .sort((a, b) => a.record.blockHeight - b.record.blockHeight || a.record.blockIndex - b.record.blockIndex || a.index - b.index);
+    // The wallet lock serializes submissions, so within one block, record order is submission order.
+    .sort((a, b) => a.record.blockHeight - b.record.blockHeight || a.index - b.index);
   const verdicts = new Map();
   for (const {record, index} of chainOrder) {
     slot = record.slot ?? 0;
@@ -32,4 +33,12 @@ export function replay(records) {
     verdicts.set(index, {...verdict, replayedAtSeconds: time, matchesNetwork: verdict.predicted === record.outcome});
   }
   return {verdicts: records.map((_, index) => verdicts.get(index) ?? null), finalState: ledger(state.data ?? state)};
+}
+
+// Attach each step's replay verdict and return the ids of steps whose network outcome contradicts
+// their expectation (probes have none).
+export function annotate(steps) {
+  const {verdicts} = replay(steps);
+  steps.forEach((record, index) => { record.replay = verdicts[index]; });
+  return steps.filter(r => r.expected !== 'probe' && (r.outcome === 'SucceedEntirely') !== (r.expected === 'accept')).map(r => r.id);
 }

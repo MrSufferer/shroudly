@@ -1,4 +1,3 @@
-import {mkdirSync, rmdirSync} from 'node:fs';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {createHash} from 'node:crypto';
@@ -9,10 +8,10 @@ import {openStagedWallet, errorClass} from './wallet.mjs';
 import {clientFor} from './provider.mjs';
 import {ownerSecret, slotSecret} from './synthetic.mjs';
 import {forgingContract} from './forging.mjs';
+export {withWalletLock} from './wallet-lock.mjs';
+export {providerClock} from './plan.mjs';
 
 const MANAGED = new URL('../../managed/timing-probe/', import.meta.url);
-const LOCK = '/tmp/shroudly-wallet.lock';
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 // Counts and indexer positions only; no keys or coin contents.
 const currentState = wallet => new Promise(resolve => { const sub = wallet.state().subscribe(value => { queueMicrotask(() => sub.unsubscribe()); resolve(value); }); });
 const dustView = state => {
@@ -24,16 +23,6 @@ const dustView = state => {
 };
 
 export const sha256 = value => createHash('sha256').update(value).digest('hex');
-
-// Exclusive wallet lock shared with the concurrently running custody experiment:
-// held only from before proving until the submission settles or fails.
-export async function withWalletLock(work, onWait) {
-  const began = Date.now();
-  for (;;) {
-    try { mkdirSync(LOCK); break; } catch (error) { if (error.code !== 'EEXIST') throw error; onWait?.(); await sleep(2000); }
-  }
-  try { return await work(Date.now() - began); } finally { try { rmdirSync(LOCK); } catch { /* already released */ } }
-}
 
 export function artifactHashes() {
   const hashes = {};
@@ -61,19 +50,6 @@ function memoryPrivateState() {
 }
 
 // Provider-referenced clock: the provider's HTTP Date header, not the local clock, is "now".
-export async function providerClock(provider) {
-  const offsets = [];
-  for (let i = 0; i < 5; i++) {
-    const local = Date.now();
-    const {date} = await provider.rpc('system_chain');
-    offsets.push(Date.parse(date) + 500 - (local + Date.now()) / 2); // Date header floors to whole seconds
-    await sleep(300);
-  }
-  offsets.sort((a, b) => a - b);
-  const offset = offsets[Math.floor(offsets.length / 2)];
-  return {offsetMs: Math.round(offset), now: () => (Date.now() + offset) / 1000};
-}
-
 export async function openSession(envPath) {
   const opened = await openStagedWallet(envPath);
   const {shielded, dust, provider: proxy} = opened;

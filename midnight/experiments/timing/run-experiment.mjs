@@ -7,14 +7,14 @@ import {emit, runIsolated} from './isolated.mjs';
 // prints only sanitized records. Worker: deploys the generated TimingProbe,
 // then drives scheduled and forged-clock calls, recording block timestamps.
 const EVIDENCE = new URL('./evidence/', import.meta.url);
-const ABBREVIATE = hash => (typeof hash === 'string' ? hash : hash);
 
 if (process.argv[2] === '--worker') {
   const [, , , envPath, mode, evidencePath] = process.argv;
   const {openSession, withWalletLock, providerClock, artifactHashes, sha256, errorClass} = await import('./network-session.mjs');
   const {errorDetail} = await import('./wallet.mjs');
   const {SCHEDULE} = await import('./schedule.mjs');
-  const {replay} = await import('./replay.mjs');
+  const {annotate} = await import('./replay.mjs');
+  const {honestBucket, claimDeadlines, smokeInterval, lockedStep, awaitFinality} = await import('./plan.mjs');
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const BUCKET = SCHEDULE.BUCKET;
   const evidence = {format: 'shroudly-timing-network-experiment-v1', mode, schedule: SCHEDULE, steps: [], notes: []};
@@ -54,54 +54,44 @@ if (process.argv[2] === '--worker') {
       // window: evaluation then runs no earlier than 20 s after the window opens.
       await waitUntil(at - 25);
       const record = {id, circuit, args: args.map(String), slot, forgedClockSeconds: forge ?? null, targetSeconds: at, expected: expect, note};
-      // Run 4 slept through its claim target (macOS idle sleep); flag any step that woke late so the
-      // outcome is not read as network behaviour.
-      const lateBy = clock.now() - (at - 25);
-      if (lateBy > 10) record.lateStartSeconds = +lateBy.toFixed(1);
-      // Run 5's lid closed mid-run: every later step was minutes late and failed in cascade. Stop
-      // rather than spend DUST on steps whose timing no longer means anything.
-      if (lateBy > 120) {
-        record.outcome = 'not-run'; evidence.steps.push(record); save();
-        throw Error(`host stalled: step ${id} started ${Math.round(lateBy)} s late (sleep or provider outage)`);
+      try {
+        await lockedStep({id, at, clock, record, lock: work => withWalletLock(work, () => emit({stage: 'waiting-for-wallet-lock', for: id})), work: async () => {
+          control.forgedSeconds = forge; control.slot = slot;
+          control.gate = async () => { await waitUntil(at); record.submittedAtSeconds = +clock.now().toFixed(3); };
+          try {
+            const submitted = await contracts.submitCallTxAsync(providers, {compiledContract: compiled, contractAddress: evidence.contractAddress, circuitId: circuit, args});
+            control.forgedSeconds = undefined;
+            record.txId = submitted.txId;
+            // Holds the wallet lock until the indexer resolves the transaction; aborts the run if it never does.
+            const {data, resolvedAfterTimeout} = await awaitFinality(publicDataProvider.watchForTxData(submitted.txId));
+            record.observedFinalizedAtSeconds = +clock.now().toFixed(3);
+            if (resolvedAfterTimeout) record.finalityResolvedAfterTimeout = true;
+            Object.assign(record, {outcome: data.status, txHash: data.txHash, blockHash: data.blockHash, blockHeight: data.blockHeight, blockTimestampMs: data.blockTimestamp});
+          } catch (error) {
+            record.outcome = record.txId ? 'finality-unobserved' : 'rejected-before-block';
+            record.errorClass = errorClass(error); record.errorDetail = errorDetail(error);
+            if (error?.abortRun) throw error;
+          } finally { record.wallet = control.walletView ?? null; control.walletView = undefined; control.forgedSeconds = undefined; control.gate = undefined; }
+        }});
+      } catch (error) {
+        // A stalled host or an unresolved transaction ends the run: later timing would mean nothing.
+        evidence.steps.push(record); save();
+        throw error;
       }
-      await withWalletLock(async lockWaitMs => {
-        record.lockWaitMs = lockWaitMs;
-        control.forgedSeconds = forge; control.slot = slot;
-        control.gate = async () => { await waitUntil(at); record.submittedAtSeconds = +clock.now().toFixed(3); };
-        try {
-          const submitted = await contracts.submitCallTxAsync(providers, {compiledContract: compiled, contractAddress: evidence.contractAddress, circuitId: circuit, args});
-          control.forgedSeconds = undefined;
-          record.txId = submitted.txId;
-          const data = await Promise.race([publicDataProvider.watchForTxData(submitted.txId), sleep(240000).then(() => { throw Error('finality watch timeout'); })]);
-          record.observedFinalizedAtSeconds = +clock.now().toFixed(3);
-          Object.assign(record, {outcome: data.status, txHash: data.txHash, blockHash: data.blockHash, blockHeight: data.blockHeight, blockTimestampMs: data.blockTimestamp});
-        } catch (error) {
-          record.outcome = record.txId ? 'finality-unobserved' : 'rejected-before-block';
-          record.errorClass = errorClass(error); record.errorDetail = errorDetail(error);
-        } finally { record.wallet = control.walletView ?? null; control.walletView = undefined; control.forgedSeconds = undefined; control.gate = undefined; }
-      }, () => emit({stage: 'waiting-for-wallet-lock', for: id}));
       evidence.steps.push(record);
       save();
       emit({step: id, outcome: record.outcome, expected: expect, blockTimestampMs: record.blockTimestampMs ?? null, submittedAtSeconds: record.submittedAtSeconds ?? null, errorClass: record.errorClass, errorDetail: record.errorDetail});
       return record;
     };
-    // Local evaluation runs from target - 25 and inclusion lands a few seconds after the target; both
-    // must fall in the stated bucket. Run 4's D2.finalize at second :55 failed this locally.
-    const honestBucketAt = target => {
-      if (bucketAt(target - 25) !== bucketAt(target + 8)) throw Error(`honest bucket target ${target} straddles a bucket boundary`);
-      return bucketAt(Math.max(target, clock.now() + 25) + 8);
-    };
+    const honestBucketAt = target => honestBucket(target, clock.now(), BUCKET);
 
     if (mode === 'smoke') {
       const t = clock.now();
-      let S0 = Math.floor(t / 900) * 900;
-      if (t + 40 > S0 + 700) S0 += 900;
+      const S0 = smokeInterval(t);
       const Dn = BigInt(S0 / 900);
       const first = await step({id: 'smoke.commit', circuit: 'commit', args: [Dn, 0n], slot: 0, at: Math.max(t + 40, S0 + 45), expect: 'accept'});
       await step({id: 'smoke.commit.forgedPrevious', circuit: 'commit', args: [Dn - 1n, 0n], slot: 0, at: Math.max(t, first.submittedAtSeconds ?? t) + 30, forge: S0 - 900 + 60, expect: 'reject'});
-      const { verdicts } = replay(evidence.steps);
-      evidence.steps.forEach((record, index) => { record.replay = verdicts[index]; });
-      evidence.mismatches = evidence.steps.filter(r => r.expected !== 'probe' && (r.outcome === 'SucceedEntirely') !== (r.expected === 'accept')).map(r => r.id);
+      evidence.mismatches = annotate(evidence.steps);
       evidence.completed = true; save(); emit({done: true, smoke: true, mismatches: evidence.mismatches});
       process.exit(evidence.mismatches.length ? 1 : 0);
     }
@@ -132,7 +122,8 @@ if (process.argv[2] === '--worker') {
     await step({id: 'D.reveal.slot2.late', circuit: 'reveal', args: [D, 2n], slot: 2, at: E + 315, forge: E + 100, expect: 'reject', note: 'late reveal with forged in-window clock'});
     const forgedBucketTime = E + 350;
     await step({id: 'D.finalize.forgedBucket', circuit: 'finalize', args: [D, bucketAt(forgedBucketTime + 3600)], at: forgedBucketTime, forge: forgedBucketTime + 3600, expect: 'reject', note: 'caller asserts a selection time an hour in the future'});
-    const finalizeAt = E + 395;
+    // Honest bucket steps sit 30 s into their bucket: 25 s of evaluation before and inclusion after.
+    const finalizeAt = E + 390;
     await step({id: 'D.finalize', circuit: 'finalize', args: [D, honestBucketAt(finalizeAt)], at: finalizeAt, expect: 'accept', note: 'honest finalization after the reveal window'});
     const selection = evidence.steps.at(-1);
     emit({stage: 'finalized', outcome: selection.outcome});
@@ -140,16 +131,16 @@ if (process.argv[2] === '--worker') {
     // ---- Draw D2 runs in parallel with D's claim window.
     await step({id: 'D2.commit.slot0', circuit: 'commit', args: [D2, 0n], slot: 0, at: E + 470, expect: 'accept'});
     await step({id: 'D2.commit.slot1', circuit: 'commit', args: [D2, 1n], slot: 1, at: E + 520, expect: 'accept'});
-    const pauseAt = E + 575;
-    await step({id: 'D.pause.claims', circuit: 'pause', args: [1n, D, honestBucketAt(pauseAt), 240n], at: pauseAt, expect: 'accept', note: 'claim-blocking pause scoped to draw D only'});
+    const pauseAt = E + 570;
+    await step({id: 'D.pause.claims', circuit: 'pause', args: [1n, D, honestBucketAt(pauseAt), 240n], at: pauseAt, expect: 'accept', note: 'claim-blocking pause scoped to draw D only; runs from the end of its bucket (E + 600) to E + 840'});
     await step({id: 'D.claim.duringPause', circuit: 'claim', args: [D], at: E + 640, forge: E + 450, expect: 'reject', note: 'forged pre-pause clock; real network time is inside the pause'});
     await step({id: 'D2.commit.slot2.cutoffProbe40', circuit: 'commit', args: [D2, 2n], slot: 2, at: E + 720 - 40, expect: 'probe', note: 'margin probe: honest commit 40 s before the cutoff'});
     await step({id: 'D2.commit.slot3.cutoffProbe15', circuit: 'commit', args: [D2, 3n], slot: 3, at: E + 720 - 15, expect: 'probe', note: 'margin probe: honest commit 15 s before the cutoff'});
-    const depositsAt = E + 880;
+    const depositsAt = E + 870;
     await step({id: 'D.pause.deposits', circuit: 'pause', args: [2n, 0n, honestBucketAt(depositsAt), 120n], at: depositsAt, expect: 'accept', note: 'unrelated pause: must not extend any claim deadline'});
     await step({id: 'D2.reveal.slot0', circuit: 'reveal', args: [D2, 0n], slot: 0, at: E + 945, expect: 'accept'});
     await step({id: 'D2.reveal.slot1', circuit: 'reveal', args: [D2, 1n], slot: 1, at: E + 990, expect: 'accept'});
-    const finalize2At = E + 1200 + 35;
+    const finalize2At = E + 1200 + 30;
     await step({id: 'D2.finalize', circuit: 'finalize', args: [D2, honestBucketAt(finalize2At)], at: finalize2At, expect: 'accept'});
 
     // ---- Claim deadlines are derived from fresh ledger reads, never from the harness's own clock.
@@ -158,25 +149,21 @@ if (process.argv[2] === '--worker') {
     if (!state.selectedAt.member(D) || !state.pauses.member(0n)) throw Error('draw D did not finalize or the claims pause is missing; claim deadlines cannot be measured');
     const selectedD = Number(state.selectedAt.lookup(D)), selectedD2 = state.selectedAt.member(D2) ? Number(state.selectedAt.lookup(D2)) : null;
     const base = selected => selected + SCHEDULE.BUCKET + SCHEDULE.FINALITY_ALLOWANCE + SCHEDULE.CLAIM;
-    const pauseRecord = state.pauses.lookup(0n);
-    const extension = Math.max(0, Number(pauseRecord.end) - Math.max(Number(pauseRecord.start), selectedD));
-    evidence.deadlines = {selectedD, selectedD2, baseD: base(selectedD), baseD2: selectedD2 === null ? null : base(selectedD2), claimPause: {start: Number(pauseRecord.start), end: Number(pauseRecord.end), extension}, extendedD: base(selectedD) + extension};
+    const {baseD, claimPause, extendedD, claimAt: claimDAt} = claimDeadlines(selectedD, state.pauses.lookup(0n), SCHEDULE);
+    evidence.deadlines = {selectedD, selectedD2, baseD, baseD2: selectedD2 === null ? null : base(selectedD2), claimPause, extendedD, claimDAt};
     save();
     emit({stage: 'deadlines', ...evidence.deadlines});
 
-    const claimDAt = evidence.deadlines.extendedD - 14;
-    await step({id: 'D.claim.afterBaseDeadline', circuit: 'claim', args: [D], at: claimDAt, expect: 'accept', note: 'targets block time after the base deadline but just before the pause-extended deadline'});
+    await step({id: 'D.claim.afterBaseDeadline', circuit: 'claim', args: [D], at: claimDAt, expect: 'accept', note: 'targets 60 s before the pause-extended deadline, past the base deadline'});
     if (selectedD2 === null) evidence.notes.push('D2 did not finalize, so D2.claim.pastBaseDeadline was not run');
     else await step({id: 'D2.claim.pastBaseDeadline', circuit: 'claim', args: [D2], at: evidence.deadlines.baseD2 + 12, forge: evidence.deadlines.baseD2 - 200, expect: 'reject', note: 'draw D2 was never paused for claims: scoped pause and unrelated pause give no grace'});
 
     // ---- Offline replay against recorded block times, plus operations exposed by the deployed contract.
-    const { verdicts } = replay(evidence.steps);
-    evidence.steps.forEach((record, index) => { record.replay = verdicts[index]; });
     const states = await contracts.getPublicStates(publicDataProvider, evidence.contractAddress);
     evidence.deployedOperations = states.contractState.operations ? [...states.contractState.operations()].map(String).sort() : null;
     evidence.sourceRevision = execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim();
     evidence.artifactHashes = artifactHashes();
-    evidence.mismatches = evidence.steps.filter(r => r.expected !== 'probe' && (r.outcome === 'SucceedEntirely') !== (r.expected === 'accept')).map(r => r.id);
+    evidence.mismatches = annotate(evidence.steps);
     evidence.completed = true;
     save();
     emit({done: true, mismatches: evidence.mismatches});

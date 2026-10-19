@@ -1,4 +1,4 @@
-import {existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, chmodSync} from 'node:fs';
+import {existsSync, readFileSync, writeFileSync, renameSync, chmodSync} from 'node:fs';
 import {join} from 'node:path';
 import * as sdk from '@midnight-ntwrk/wallet-sdk';
 import * as ledger from '@midnight-ntwrk/ledger-v8';
@@ -8,7 +8,7 @@ import {emit} from './isolated.mjs';
 
 // Staged variant of the custody protected-wallet bootstrap: identical key
 // derivation and routes, but reports the stage (and error class only) that
-// fails, with generous synchronization time for a first sync from genesis.
+// fails, with generous synchronization time for catching up from the cache.
 // Diagnostic text with URLs, long hex, and key/value credentials removed, truncated.
 export const redacted = text => String(text ?? '').replace(/[a-z]+:\/\/\S+/gi, '<url>').replace(/[0-9a-f]{24,}/gi, '<hex>').replace(/(project_id|token|seed|mnemonic|key)\S*/gi, '<redacted>').slice(0, 240);
 // Effect fiber failures carry the failed error in a Cause under this symbol, not in .cause.
@@ -18,22 +18,30 @@ const causeOf = error => error?.cause ?? failedIn(error?.[FIBER_CAUSE]);
 export const errorDetail = error => { const parts = []; for (let e = error, i = 0; e && i < 4; e = causeOf(e), i++) parts.push(`${e?.constructor?.name}: ${redacted(e?.message)}`); return parts.join(' <- '); };
 export const errorClass = error => `${error?.constructor?.name ?? 'unknown'}${typeof error?.code === 'string' && /^[A-Z_0-9]{2,40}$/.test(error.code) ? `:${error.code}` : ''}`;
 
-// Wallet synchronization from genesis took well over an hour on Preprod, so the
-// serialized public wallet state (no seed or secret key is passed to restore();
-// keys are supplied at start) is cached in a private directory outside the
-// repository. The cache is an optimization only: delete it to resync.
-const CACHE = process.env.SHROUDLY_TIMING_WALLET_CACHE || '/tmp/shroudly-timing-wallet-cache';
-async function saveCache(wallet) {
-  mkdirSync(CACHE, {recursive: true, mode: 0o700}); chmodSync(CACHE, 0o700);
-  for (const name of ['shielded', 'unshielded', 'dust']) {
-    const file = join(CACHE, `${name}.json`);
+// Wallet synchronization from genesis took well over an hour on Preprod and once left the shared
+// wallet's DUST view corrupted, so these scripts never sync from genesis. The serialized public
+// wallet state (no seed or secret key is passed to restore(); keys are supplied at start) lives in
+// a private directory outside the repository, named by SHROUDLY_TIMING_WALLET_CACHE, and must exist.
+const CACHE_FILES = ['shielded', 'unshielded', 'dust'];
+export function walletCache(env = process.env) {
+  const dir = env.SHROUDLY_TIMING_WALLET_CACHE;
+  if (!dir) throw Error('SHROUDLY_TIMING_WALLET_CACHE is not set; point it at a synced wallet cache copy (never sync from genesis)');
+  const missing = CACHE_FILES.filter(name => !existsSync(join(dir, `${name}.json`)));
+  if (missing.length) throw Error(`wallet cache is missing ${missing.join(', ')}; restore a synced cache copy (never sync from genesis)`);
+  return dir;
+}
+async function saveCache(dir, wallet) {
+  chmodSync(dir, 0o700);
+  for (const name of CACHE_FILES) {
+    const file = join(dir, `${name}.json`);
     writeFileSync(`${file}.tmp`, await wallet[name].serializeState(), {mode: 0o600});
     renameSync(`${file}.tmp`, file);
   }
 }
-const cached = name => existsSync(join(CACHE, `${name}.json`)) ? readFileSync(join(CACHE, `${name}.json`), 'utf8') : undefined;
 
 export async function openStagedWallet(path, {syncMs = 9000000} = {}) {
+  const cache = walletCache();
+  const cached = name => readFileSync(join(cache, `${name}.json`), 'utf8');
   const started = Date.now();
   const stage = (name, extra = {}) => emit({stage: name, elapsedMs: Date.now() - started, ...extra});
   const timed = async (name, ms, promise) => {
@@ -63,11 +71,11 @@ export async function openStagedWallet(path, {syncMs = 9000000} = {}) {
   let wallet;
   try {
     wallet = await timed('wallet-init', 120000, sdk.WalletFacade.init({configuration,
-      shielded: cfg => cached('shielded') ? sdk.ShieldedWallet(cfg).restore(cached('shielded')) : sdk.ShieldedWallet(cfg).startWithSecretKeys(shielded),
-      unshielded: cfg => cached('unshielded') ? sdk.UnshieldedWallet(cfg).restore(cached('unshielded')) : sdk.UnshieldedWallet(cfg).startWithPublicKey(sdk.PublicKey.fromKeyStore(keystore)),
-      dust: cfg => cached('dust') ? sdk.DustWallet(cfg).restore(cached('dust')) : sdk.DustWallet(cfg).startWithSecretKey(dust, ledger.LedgerParameters.initialParameters().dust),
+      shielded: cfg => sdk.ShieldedWallet(cfg).restore(cached('shielded')),
+      unshielded: cfg => sdk.UnshieldedWallet(cfg).restore(cached('unshielded')),
+      dust: cfg => sdk.DustWallet(cfg).restore(cached('dust')),
     }));
-    stage('wallet-restored', {fromCache: Boolean(cached('dust'))});
+    stage('wallet-restored', {fromCache: true});
     stage('wallet-init');
     await timed('wallet-start', 120000, wallet.start(shielded, dust));
     stage('wallet-start');
@@ -79,11 +87,11 @@ export async function openStagedWallet(path, {syncMs = 9000000} = {}) {
       const view = latest;
       if (!view) return;
       stage('sync-progress', {shielded: numbers(view.shielded?.state?.progress ?? view.shielded?.progress), dust: numbers(view.dust?.state?.progress ?? view.dust?.progress), unshielded: numbers(view.unshielded?.progress ?? view.unshielded?.state?.progress)});
-      saveCache(wallet).catch(() => stage('cache-save-failed'));
+      saveCache(cache, wallet).catch(() => stage('cache-save-failed'));
     }, 60000);
     const state = await timed('wallet-sync', syncMs, wallet.waitForSyncedState()).finally(() => { clearInterval(ticker); watcher.unsubscribe(); });
     stage('wallet-sync');
-    await saveCache(wallet).catch(() => stage('cache-save-failed'));
+    await saveCache(cache, wallet).catch(() => stage('cache-save-failed'));
     return {wallet, shielded, dust, keystore, configuration, state, provider: proxy, close: async () => { try { await wallet.stop(); } finally { await proxy.close(); } }};
   } catch (error) {
     if (wallet) await wallet.stop().catch(() => {});

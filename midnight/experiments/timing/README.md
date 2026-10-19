@@ -29,7 +29,7 @@ node midnight/experiments/timing/summarize.mjs evidence/network-full-8.1.3.json 
 node --test midnight/experiments/timing/*.test.mjs
 ```
 
-Keep the lid open during a full run. `caffeinate` cannot stop clamshell sleep, and run 5 was lost to it. A run now stops once a step starts more than 120 s late.
+Keep the lid open during a full run. `caffeinate` cannot stop clamshell sleep, and run 5 was lost to it. A run now stops once a step starts more than 120 s late, measured after it acquires the wallet lock. It also stops, keeping the wallet lock, when the indexer has not resolved a submitted transaction 24 minutes after submission.
 
 ## Schedule under test
 
@@ -38,7 +38,7 @@ Times are UTC seconds. S is the start of a 15-minute interval (S mod 900 = 0).
 - Commit window: `[S, S+720)`. The commit cutoff is 3 minutes before the interval ends.
 - Reveal window: `[S+900, S+1200)`. These are the 5 minutes after the interval.
 - Finalize: at or after S+1200. The caller names the 60 s bucket containing the network time, and the contract asserts it.
-- Claim deadline: `selected + 60 + 120 + 3600`, plus pause history.
+- Claim deadline: `selected + 60 + 120 + 3600`, plus any claims pauses for the draw.
 
 ## Results (run 6: contract `4f0ddfca…6e34`, S = 1792375200, 2026-10-19T02:00Z)
 
@@ -67,7 +67,7 @@ Each accepted step's block time also replays offline to the same verdict (`repla
 
 ### Pause-history accounting
 
-The contract stores pause history in `pauses`. Only pauses of kind `claims` scoped to the draw (or to all draws) extend a claim deadline. The extension is `end − max(start, selected)`. In run 6 the 300 s claims pause gave D an extended deadline of 1792380540, and a claim landed 288 s past D's base deadline. D2 was selected after both pauses and got no extension: its claim 12 s past the base deadline was refused, even with a forged earlier clock. The deposits pause extended nothing. There is no input that names a grace period, and pauses are capped at `MAX_PAUSE` (86400 s).
+The contract stores pause history in `pauses`. Only pauses of kind `claims` scoped to the draw (or to all draws) extend a claim deadline. The extension is `end − max(start, selected)`. A pause starts at the end of the bucket its transaction names, which is never before the pause's block time, and ends `duration` later. A pause that starts after selection therefore extends the deadline by exactly its duration, and a pause that lands after a deadline cannot reach back and extend it. A claims pause must not overlap the latest claims pause. Deposits pauses are not checked, so they never block one. The probe stops at four pauses because `extendFor` folds a fixed four records. A production contract must not cap the lifetime number of pauses. In run 6 the 300 s claims pause gave D an extended deadline of 1792380540, and a claim landed 288 s past D's base deadline. D2 was selected after both pauses and got no extension: its claim 12 s past the base deadline was refused, even with a forged earlier clock. The deposits pause extended nothing. There is no input that names a grace period, and pauses are capped at `MAX_PAUSE` (86400 s).
 
 ## Usable claim window
 
@@ -94,10 +94,13 @@ Commit submissions near the cutoff, from every run in which the node judged the 
 
 Inclusion latency across run 6 was 2–7 s (median 4, n = 16). Run 2 saw one 20 s inclusion. The node's refusal edge lies between 9.4 and 14.3 s before a `blockTimeLessThan` bound.
 
-**Proposal:** clients and automation must stop submitting **60 s (one selection bucket) before any closing bound**: the commit cutoff, the reveal close, and the claim deadline. They should start no earlier than **25 s after an opening bound**. This margin is 4× the widest refusal edge seen (14.3 s) and 3× the worst inclusion seen (20 s). Every submission at ≥ 40 s was included. The 60 s figure needs no new contract constant, since it equals `BUCKET`. The usable claim window stays above 60 minutes even after giving up that final minute (61.9 − 1 = 60.9 min from observed finality). Run 2 showed that opening bounds are judged on block time: a reveal submitted 8 s before the window opened was included at 12 s after. So the opening-side margin protects only the client's own local evaluation.
+**Proposal:** clients and automation must stop submitting **60 s (one selection bucket) before any closing bound**: the commit cutoff, the reveal close, and the claim deadline. They should start no earlier than **25 s after an opening bound**. This margin is 4× the widest refusal edge seen (14.3 s) and 3× the worst inclusion seen (20 s). Every submission at ≥ 40 s was included. The 60 s figure needs no new contract constant, since it equals `BUCKET`. The usable claim window stays above 60 minutes even after giving up that final minute (61.9 − 1 = 60.9 min from observed finality). Run 2 showed that opening bounds are judged on block time: a reveal submitted 8 s before the window opened was included at 12 s after. So the opening-side margin protects only the client's own local evaluation. The harness now applies the closing margin to its own claim: `D.claim.afterBaseDeadline` targets 60 s before the extended deadline. Run 6 targeted 14 s before it.
 
 ## Known harness hazards
 
 - Use `caffeinate -is` and keep the lid open. Run 4 lost a step to idle sleep, and run 5 to clamshell sleep.
 - Run 3: the in-memory DUST view dropped to 0 coins after rejections, while on-chain DUST was intact. `network-session.mjs` reopens from the cache when this happens.
-- Honest bucket targets must not straddle a 60 s boundary between local evaluation (target − 25 s) and inclusion. `honestBucketAt` throws if they do.
+- Honest bucket targets must not straddle a 60 s boundary between local evaluation (target − 25 s) and inclusion (up to target + 25 s). Targets therefore sit 25–34 s into their bucket. `honestBucket` in `plan.mjs` throws if a target straddles a boundary. It checks from the actual start time when a step starts late.
+- The wallet lock (`/tmp/shroudly-wallet.lock`) records its owner's PID. It is reclaimed only when that process is dead. A lock with no owner file is waited for.
+- `SHROUDLY_TIMING_WALLET_CACHE` must name an existing cache containing all three wallet files. `wallet.mjs` refuses to start otherwise, and never syncs from genesis.
+- A provider response without a parseable `Date` header stops the run, rather than letting a NaN clock fire every step at once.

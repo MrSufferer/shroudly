@@ -17,6 +17,8 @@ export ledger selectedAt: Map<Uint<64>, Uint<64>>;
 export ledger claimed: Set<Uint<64>>;
 export ledger pauseCount: Uint<8>;
 export ledger pauses: Map<Uint<8>, Pause>;
+// Index + 1 of the most recent claims pause (kind 1); 0 when there is none.
+export ledger latestClaimsPause: Uint<8>;
 
 struct Pause { kind: Uint<8>; scope: Uint<64>; start: Uint<64>; end: Uint<64>; }
 
@@ -36,6 +38,7 @@ export pure circuit maxPauseSeconds(): Uint<64> { return 86400; }
 constructor() {
   authority = disclose(persistentHash<Bytes<32>>(owner()));
   pauseCount = 0;
+  latestClaimsPause = 0;
 }
 
 pure circuit drawStart(draw: Uint<64>): Uint<64> {
@@ -53,7 +56,6 @@ pure circuit binding(draw: Uint<64>, who: Uint<2>, opening: Bytes<32>): Bytes<32
 export circuit commit(draw: Uint<64>, who: Uint<2>): [] {
   const d = disclose(draw);
   const start = drawStart(d);
-  assert(who < 4, "unknown contributor");
   assert(blockTimeGte(start) && blockTimeLt((start + intervalSeconds() - commitCutoffSeconds()) as Uint<64>), "commit window closed or not open");
   const key = slot(d, disclose(who));
   assert(!commitments.member(key), "already committed");
@@ -92,13 +94,21 @@ export circuit finalize(draw: Uint<64>, bucket: Uint<64>): [] {
 
 export circuit pause(kind: Uint<8>, scope: Uint<64>, bucket: Uint<64>, duration: Uint<64>): [] {
   assert(disclose(persistentHash<Bytes<32>>(owner()) == authority), "unauthorized pause");
+  // Probe limit only: extendFor folds a fixed four records. A production contract must not cap
+  // the lifetime number of pauses.
   assert(pauseCount < 4, "pause history full");
   assert(disclose(duration) > 0 && disclose(duration) <= maxPauseSeconds(), "pause duration out of bounds");
-  const begin = inBucket(bucket);
-  if (pauseCount > 0) {
-    assert(pauses.lookup((pauseCount - 1) as Uint<8>).end <= begin, "pauses must not overlap");
+  // The pause starts at the end of its bucket: never earlier than the pause block's real time,
+  // so a pause landing after a deadline cannot reach back and extend it.
+  const start = (inBucket(bucket) + bucketSeconds()) as Uint<64>;
+  // Only claims pauses extend deadlines, so only they must stay chronological and disjoint;
+  // a deposits pause never blocks one.
+  const claims = disclose(kind) == 1;
+  if (claims && latestClaimsPause > 0) {
+    assert(pauses.lookup((latestClaimsPause - 1) as Uint<8>).end <= start, "pauses must not overlap");
   }
-  pauses.insert(pauseCount, Pause { kind: disclose(kind), scope: disclose(scope), start: begin, end: (begin + bucketSeconds() + disclose(duration)) as Uint<64> });
+  pauses.insert(pauseCount, Pause { kind: disclose(kind), scope: disclose(scope), start: start, end: (start + disclose(duration)) as Uint<64> });
+  if (claims) { latestClaimsPause = (pauseCount + 1) as Uint<8>; }
   pauseCount = (pauseCount + 1) as Uint<8>;
 }
 
@@ -116,8 +126,9 @@ circuit blocks(record: Pause, draw: Uint<64>): Boolean {
   return record.kind == 1 && (record.scope == 0 || record.scope == draw);
 }
 
-// Folds one recorded pause into the deadline. Pauses are chronological and
-// non-overlapping, so processing them in order extends only by blocked time.
+// Folds one recorded pause into the deadline. Claims pauses are chronological and
+// non-overlapping (other kinds are skipped), so processing them in order extends
+// only by blocked time.
 circuit extendFor(deadline: Uint<64>, selected: Uint<64>, d: Uint<64>, index: Uint<8>): Uint<64> {
   if (index >= pauseCount) { return deadline; }
   const record = pauses.lookup(index);

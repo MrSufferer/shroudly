@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {replay} from './replay.mjs';
+import {replay, annotate} from './replay.mjs';
 import {DRAW,S,E} from './harness.mjs';
 
-const record = (circuit, args, slot, blockSeconds, outcome, extra = {}) => ({circuit, args: args.map(String), slot, blockTimestampMs: blockSeconds * 1000 + 1, blockHeight: blockSeconds, blockIndex: 0, outcome, ...extra});
+const record = (circuit, args, slot, blockSeconds, outcome, extra = {}) => ({circuit, args: args.map(String), slot, blockTimestampMs: blockSeconds * 1000 + 1, blockHeight: blockSeconds, outcome, ...extra});
 
 test('replay reproduces network verdicts from block time alone, including time-ambiguous failures', () => {
   const records = [
@@ -26,4 +26,17 @@ test('replay reproduces network verdicts from block time alone, including time-a
 test('transactions never included in a block have no replay verdict', () => {
   const {verdicts} = replay([{circuit: 'commit', args: [String(DRAW), '0'], slot: 0, blockTimestampMs: null, outcome: 'rejected-at-submission'}]);
   assert.deepEqual(verdicts, [null]);
+});
+
+test('annotating a run attaches each replay verdict and lists steps whose outcome contradicts the expectation', () => {
+  const steps = [
+    {id: 'ok', expected: 'accept', ...record('commit', [DRAW, 0n], 0, S + 30, 'SucceedEntirely')},
+    {id: 'wrong', expected: 'reject', ...record('commit', [DRAW, 1n], 1, S + 60, 'SucceedEntirely')},
+    {id: 'probe', expected: 'probe', ...record('commit', [DRAW, 2n], 2, S + 720, 'FailEntirely')},
+    {id: 'unsent', expected: 'accept', circuit: 'commit', args: [String(DRAW), '3'], slot: 3, blockTimestampMs: null, outcome: 'rejected-before-block'},
+  ];
+  assert.deepEqual(annotate(steps), ['wrong', 'unsent']);
+  assert.equal(steps[0].replay.matchesNetwork, true);
+  assert.match(steps[2].replay.reason, /commit window/);
+  assert.equal(steps[3].replay, null);
 });
