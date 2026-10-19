@@ -58,6 +58,12 @@ if (process.argv[2] === '--worker') {
       // outcome is not read as network behaviour.
       const lateBy = clock.now() - (at - 25);
       if (lateBy > 10) record.lateStartSeconds = +lateBy.toFixed(1);
+      // Run 5's lid closed mid-run: every later step was minutes late and failed in cascade. Stop
+      // rather than spend DUST on steps whose timing no longer means anything.
+      if (lateBy > 120) {
+        record.outcome = 'not-run'; evidence.steps.push(record); save();
+        throw Error(`host stalled: step ${id} started ${Math.round(lateBy)} s late (sleep or provider outage)`);
+      }
       await withWalletLock(async lockWaitMs => {
         record.lockWaitMs = lockWaitMs;
         control.forgedSeconds = forge; control.slot = slot;
@@ -149,6 +155,7 @@ if (process.argv[2] === '--worker') {
     // ---- Claim deadlines are derived from fresh ledger reads, never from the harness's own clock.
     const state = await readLedger();
     // D2 may fail to finalize; keep measuring D's claim window rather than crash on the missing cell.
+    if (!state.selectedAt.member(D) || !state.pauses.member(0n)) throw Error('draw D did not finalize or the claims pause is missing; claim deadlines cannot be measured');
     const selectedD = Number(state.selectedAt.lookup(D)), selectedD2 = state.selectedAt.member(D2) ? Number(state.selectedAt.lookup(D2)) : null;
     const base = selected => selected + SCHEDULE.BUCKET + SCHEDULE.FINALITY_ALLOWANCE + SCHEDULE.CLAIM;
     const pauseRecord = state.pauses.lookup(0n);
