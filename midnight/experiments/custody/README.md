@@ -24,7 +24,7 @@ docker run -d --name shroudly-preprod-proof-server -p 127.0.0.1:6300:6300 midnig
 ```
 
 If stopped, use `docker start shroudly-preprod-proof-server`. Before running
-the proof command, check readiness and require the exact response `8.1.0`:
+the proof command, check readiness and require the exact response `8.1.3`:
 
 ```sh
 curl --fail --silent --show-error --max-time 5 http://127.0.0.1:6300/version

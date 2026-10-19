@@ -28,7 +28,7 @@ Keychain metadata checks observed:
 | Indexer HTTP | HTTP 200; valid GraphQL response |
 | Indexer WebSocket | Valid `graphql-transport-ws` connection acknowledgement |
 | Node RPC | HTTP 200; `system_chain` confirmed Midnight Preprod |
-| Local proof service | HTTP 200 and exact `/version` response **8.1.0** |
+| Local proof service | HTTP 200 and exact `/version` response **8.1.3** |
 | GitHub repository access | Pull, push, maintain and admin permissions observed |
 | Separate Vercel project | `shroudly-preprod` created; authenticated team membership confirmed as `OWNER` |
 | Vercel default domain | `shroudly-preprod.vercel.app` is verified |

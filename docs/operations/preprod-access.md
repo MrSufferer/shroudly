@@ -63,7 +63,7 @@ does not change provider policy or the reviewed candidate version pins.
 The exact candidate remains [midnight/version-profile.json](../../midnight/version-profile.json):
 Compact CLI **0.5.2**, language **0.23.0**, compiler **0.31.1**, runtime
 **0.16.0**, Midnight.js **4.1.1**, Wallet SDK **1.2.0**, DApp Connector
-**4.0.1**, node **1.0.400**, indexer **4.3.302** (unverified), proof server **8.1.3**.
+**4.0.1**, node **1.0.2**, indexer **4.3.3-hotfix** (network versions unverified), proof server **8.1.3**.
 The ledger library is `@midnight-ntwrk/ledger-v8` **8.1.0**, derived from its
 exact root `package.json` dependency pin in the CLI report.
 These are candidate pins; qualification remains outstanding. Do not upgrade

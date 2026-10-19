@@ -54,8 +54,9 @@ stays inside the relay process; it is never in page JavaScript.
 
 ## Evidence
 
-All live runs used Preprod deployment `2ffeca1b…e7f5` and proof server
-`midnightntwrk/proof-server:8.1.3` on loopback.
+All live runs used Preprod deployment `2ffeca1b…e7f5` and the profile's proof
+server (`midnightntwrk/proof-server:8.1.3`) on loopback. `live-preprod-node.json`
+does not itself record the proof-server version; `browser-lace.json` does.
 
 | Acceptance item | Evidence | Status |
 | --- | --- | --- |
@@ -65,9 +66,9 @@ All live runs used Preprod deployment `2ffeca1b…e7f5` and proof server
 | AC1 browser builds a real unproven call; no wallet refuses to connect | `results/browser-preflight.json` | Proven |
 | AC2 Recovery Kit restore; stale kit cannot act | `live-preprod-node.json` `restore-current-kit-fresh-profile`, `advance-from-restored-kit`, `restore-older-kit-is-stale`, `stale-kit-cannot-act` | Proven |
 | AC2 state and intent durable before submit; blocked on failed write | `live-preprod-node.json` `crash-before-submission`; `browser-qualification.json` `quotaFailure` (0 submitted) | Proven |
-| AC2 keys only in session memory | `harness/main.mjs` (kit key never stored); `journal.test.mjs` "nothing in storage contains plaintext witness material or the session key" | Proven by construction and tests |
-| AC3 crash before submit / during observation / after finality / during handoff | `live-preprod-node.json` `crash-*` and `restart-reconcile-*` steps, no duplicate submission | Proven (Node) |
-| AC4 isolation | `live-preprod-node.json` `init-bob-same-deployment`, `bob-unregistered-while-alice-registered` | Proven |
+| AC2 keys only in session memory | `harness/main.mjs` (kit key never stored); `journal.test.mjs` "nothing in storage contains plaintext witness material or the session key" | Proven by construction and tests; the Node journey keeps its kit key in a 0600 file |
+| AC3 crash before submit / during observation / after finality / during handoff | `live-preprod-node.json` `crash-*` and `restart-reconcile-*` steps, 6 submissions and no duplicate | Proven live only for restarts after finality; pre-finality restart and indexer absence by `actions.test.mjs` |
+| AC4 isolation | `live-preprod-node.json` `init-bob-same-deployment`, `bob-unregistered-while-alice-registered` (participants); `session.test.mjs`, `kit.test.mjs` (deployment, account, network) | Participants live; scopes by tests |
 | AC4 IndexedDB durability, single-writer exclusion | `browser-qualification.json` `abruptKill` (SIGKILL), `writerExclusion` | Proven (headless Chrome) |
 | AC4 sanitized evidence, unresolved limitations | All `results/*.json` hold booleans, digests, rounds and outcomes only; Known limits below | Proven |
 
@@ -84,18 +85,22 @@ All live runs used Preprod deployment `2ffeca1b…e7f5` and proof server
   later aborted launch overwrote the run's own file; it has no per-step times.
 - Crash-and-reconcile over a real Lace handoff was not run; the browser crash
   points are covered only by the synthetic Playwright qualification.
-- `persisted` storage was also not granted in the headed Lace profile, so that
-  profile would block new contributions.
-- `indexer.preprod.midnight.network` is decommissioned; Lace and the relay use
-  Blockfrost. `midnight/version-profile.json` still pins proof server 8.1.0
-  while evidence used 8.1.3; the profile is left for its owner to update.
-
+- The live Node journey restarts only after its transaction is final, because
+  the wallet service waits for finality before the participant process exits.
+  A live restart with the transaction still unfinalized or missing from the
+  indexer was not run.
+- A Recovery Kit carries its decryption key beside the sealed records: whoever
+  holds the kit file can read the witness material (ADR 0029 places the key in
+  the kit). Protect it like a seed phrase.
+- `indexer.preprod.midnight.network` is decommissioned; the profile, Lace and
+  the relay use Blockfrost.
 - Web Locks exclude only tabs of one browser profile. Copied Recovery Kits on
   several devices are unsupported and not detected (ADR 0029).
 - A handoff whose outcome is unknown and whose transaction never reached the
   ledger stays `pending`: only the transaction TTL expiring against chain time
   (not implemented here) could prove non-submission, so new actions stay blocked.
-- `persisted` storage was not granted in the headless temporary Chrome profile
-  (see `results/browser-qualification.json`); contributions would be blocked.
+- `persisted` storage was granted neither in the headless temporary Chrome
+  profile (`results/browser-qualification.json`) nor in the headed Lace profile
+  (`results/browser-lace.json`); new contributions would be blocked.
 - The wallet-account binding checks that the wallet's own verifying key signed a
   scope challenge; it does not verify the key hashes to the reported address.

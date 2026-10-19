@@ -37,7 +37,7 @@ export const MIDNIGHT_VERSION_PROFILE = Object.freeze({
   walletSdk: "1.2.0",
   node: "1.0.2",
   indexer: "4.3.3-hotfix",
-  proofServer: "8.1.0",
+  proofServer: "8.1.3",
 });
 
 // This is deliberately null until the human qualification run has been

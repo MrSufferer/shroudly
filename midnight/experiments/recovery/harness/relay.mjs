@@ -1,4 +1,5 @@
 import {createServer} from 'node:http';
+import {readFileSync} from 'node:fs';
 import {readFile} from 'node:fs/promises';
 import {extname,join,resolve,sep} from 'node:path';
 
@@ -7,7 +8,8 @@ import {extname,join,resolve,sep} from 'node:path';
 // the Operator's provider credential attached server-side so the credential
 // never reaches page JavaScript, a VITE_ value, or a log. Loopback only.
 const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.wasm':'application/wasm','.json':'application/json','.css':'text/css'};
-const OFFICIAL_INDEXER='https://midnight-preprod.blockfrost.io/api/v0';
+// The approved indexer comes from the version profile, never a local literal.
+const OFFICIAL_INDEXER=JSON.parse(readFileSync(new URL('../../../version-profile.json',import.meta.url),'utf8')).network.indexerGraphql;
 
 export async function startRelay({port=4177,distDirectory,managedDirectory,indexerUrl=OFFICIAL_INDEXER,token,publicConfig,allowInsecureUpstreamForTests=false}) {
   if(!allowInsecureUpstreamForTests&&indexerUrl!==OFFICIAL_INDEXER)throw Error('indexer route is outside the approved Preprod endpoint');

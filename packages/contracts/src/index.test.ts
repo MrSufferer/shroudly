@@ -27,7 +27,7 @@ describe("Shroudly Compact release profile", () => {
       dappConnector: "4.0.1",
       node: "1.0.2",
       indexer: "4.3.3-hotfix",
-      proofServer: "8.1.0",
+      proofServer: "8.1.3",
     });
   });
 

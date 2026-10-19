@@ -10,12 +10,15 @@
   "dappConnector": "4.0.1",
   "node": "1.0.2",
   "indexer": "4.3.3-hotfix",
-  "proofServer": "8.1.0",
+  "proofServer": "8.1.3",
+  "proofServerImage": "midnightntwrk/proof-server@sha256:0f4ab0716985eaebbe55a970348f52ff05ffd8a96631ed7232bd0c4ba02c115c",
   "qualificationVerifierFingerprint": null,
   "network": {
     "name": "preprod",
     "rpc": "https://rpc.preprod.midnight.network",
-    "indexerGraphql": "https://indexer.preprod.midnight.network/api/v4/graphql",
+    "indexerGraphql": "https://midnight-preprod.blockfrost.io/api/v0",
+    "indexerWs": "wss://midnight-preprod.blockfrost.io/api/v0/ws",
+    "indexerProvider": "blockfrost (project_id credential required; indexer.preprod.midnight.network decommissioned 2026-10-09)",
     "defaultProofMode": "local"
   },
   "gates": {
@@ -32,5 +35,8 @@
     "browserEvidence": false,
     "productionApproval": false,
     "mainnetTransactionsEnabled": false
+  },
+  "dependencyOverrides": {
+    "@midnight-ntwrk/onchain-runtime-v3": "3.0.0"
   }
 }
