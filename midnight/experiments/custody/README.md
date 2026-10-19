@@ -118,48 +118,56 @@ its revision does not identify the revised script hashes. Its zero DUST deltas
 used stale wallet snapshots and are not reliable cost measurements. The
 interrupted separated claim has an unknown outcome pending a fresh indexer read.
 
-The 2026-10-18 run (started 16:17:10Z, 427 s, `complete: true`) supersedes the
-2026-10-17 checkpoints:
+The 2026-10-19 run (started 01:28:42Z, 376 s, `complete: true`) supersedes the
+earlier checkpoints. It ran committed revision 0cad3f9 with a clean working tree;
+its embedded manifest records the script hashes.
 
 | Measurement | Co-located | Separated |
 | --- | --- | --- |
-| Finalized deploy | block 3037093, 25,161 ms, 11,058 bytes | asset block 3037114, 30,366 ms; pool block 3037125, 24,618 ms |
-| Finalized seed | block 3037098, 29,431 ms, 13,994 bytes; one contract output | asset block 3037120, 36,226 ms |
-| Allocation | block 3037103, 26,874 ms; repeated allocation rejected | forged claim finalized at block 3037129, forged randomness at 3037133 |
-| Withdrawal | block 3037109, 38,629 ms, 24,257 bytes; one contract input and output; wallet received 400,000 of the custody color | no authenticated release path |
+| Finalized deploy | block 3042345, 37,348 ms, 11,059 bytes | asset block 3042366, 24,401 ms; pool block 3042376, 32,171 ms |
+| Finalized seed | block 3042350, 27,699 ms, 13,994 bytes; one contract output matching the block-pinned custody commitment | asset block 3042371, 33,497 ms |
+| Allocation | block 3042355, 31,212 ms; repeated allocation rejected | forged claim finalized at block 3042380, forged randomness at 3042385 |
+| Withdrawal | block 3042361, 54,496 ms, 24,258 bytes; one contract input and output, the output matching the custody commitment; wallet received 400,000 of the custody color | no authenticated release path |
 | Fresh indexer reconciliation | custody 1,600,000 = principal 600,000 + reserve 999,900 + prize 100; color derived from contract address | custody 2,000,000 against claimed liabilities 5,000,100: not reconciled |
 | Rejections (generated constraints on fetched state) | forged draw, contributor binding, duplicate contributor, unauthorized release, principal over liability, repeated allocation: 6/6 rejected with matched reasons | caller claims accepted |
 | Authenticated boundary | same-contract constraints available | compiler 0.31.1 rejects cross-contract calls on ledger-8.0.2 |
 | Qualification | enforceable custody and reconciliation on Preprod | caller claims cannot establish authenticated separation |
 
-Every step's DUST delta was 0: Preprod fee prices sat at their floor, and
-DUST fees round to zero. That exposed a wallet SDK fault. In dust-wallet
-4.2.0, `computeBalancingRecipe` selects no DUST for a 0 fee and then re-prices
-the empty DUST intent (fee 1) indefinitely, until wasm reports `unreachable`
-after about 19 minutes. Deploy and seed escaped only because their fee was
-nonzero. `protected-wallet.mjs` sets `costParameters.additionalFeeOverhead`,
-so balancing always selects a coin and converges.
+All nine submissions report `finalizedVia: node`. The wallet also holds 400,000
+of three earlier runs' custody colors; only this run's color is checked.
 
-The run that preceded it (16:08Z) failed CustodyProbe deploy with
-`operation-failed` after 1.5 s and captured no detail. A no-submit deploy check
-and the next live run both succeeded, so the cause remains unknown. Its hashes
-are superseded. The next run locally captured the redacted error chain behind a
-debug flag; that logging is not committed. As a result its manifest reports
-`workingTreeDirty: true` with a `journey.mjs` hash for the patched file. The
-committed runner at revision 2fc13c3 differs only by that logging.
+Preprod fee prices sat at their floor, so DUST fees round to zero. That exposed
+a wallet SDK fault. In dust-wallet 4.2.0, `computeBalancingRecipe` selects no
+DUST for a 0 fee and then re-prices the empty DUST intent (fee 1) indefinitely,
+until wasm reports `unreachable` after about 19 minutes. `protected-wallet.mjs`
+sets `costParameters.additionalFeeOverhead`, so balancing always selects a coin
+and converges.
+
+Failed and partial runs (not committed as evidence unless named):
+
+- 16:08Z, 17:21Z and 19:35Z on 2026-10-18 failed the first CustodyProbe deploy
+  with `operation-failed` within seconds and captured no detail; the cause
+  remains unknown. Failures now record a redacted cause chain (`error-detail.mjs`).
+- `network-checkpoint-2026-10-18-seed-commitment-read.json` (18:41Z) finalized
+  all nine submissions but compared the seed output against a latest-state read,
+  so `seed` was false. Commitment checks now read state at the submission block.
+- 21:49Z reported deploy `outcome-unknown` after a 2h11m cache sync. A fresh
+  indexer read showed that transaction finalized (SUCCESS, block 3041524) 7 s
+  after submission: the node Finalized subscription stalled. On that timeout the
+  runner now reads that exact transaction from the indexer and records
+  `finalizedVia: indexer`; the qualifying run did not need it.
 
 `limits.mjs` writes `limits-result.json`. It records k from proof server 8.1.3's
 `/k` for every deployed circuit (largest 15; limit 25) and the verifier key sizes
-(largest 2,119 bytes; limit 50,000 bytes). It also checks the finalized
-transaction sizes the journey measures: deploy, seed and withdraw, largest 24,257
-bytes against a limit of 786,432. Allocation and separated transactions are not
-byte-measured; their circuits have k no larger than seed's.
+(largest 2,119 bytes; limit 50,000 bytes). It measures every one of the nine
+submitted transactions as serialized at submission: largest 24,258 bytes against
+a limit of 786,432.
 
 The revised runner checkpoints each submitted hash before waiting, caps node
 finality and transaction-indexer waits at 180 seconds each, and aborts further
-submissions on timeout with `outcome-unknown`. It queries the interrupted pool
-through the indexer and synchronizes the wallet before making new submissions.
-A timeout is never recorded as a rejected transaction.
+submissions with `outcome-unknown` when neither confirms. A pending spend of
+unknown outcome is never saved into the wallet cache. A timeout is never
+recorded as a rejected transaction.
 
 The runtime regression exercises actual generated reserve seeding and allocation
 through the SDK runner up to the proof-provider boundary. The existing exact
@@ -170,7 +178,7 @@ second live run finalized seed, then exposed a separate reader error: generated
 `ledger()` requires `ContractState.data` (a ChargedState), rather than the SDK
 ContractState wrapper. The regression now reproduces that failure before the
 fix and exercises the corrected generated-ledger read.
-Sixteen offline tests pass, including generated custody/rejection constraints,
+Twenty-one offline tests pass, including redacted error detail, generated custody/rejection constraints,
 separated forgery, runtime compatibility, protected configuration/proxy and cache.
 Proxy tests require local loopback listening outside the restricted sandbox.
 
