@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { readContractLedger } from './runtime-state.mjs';
 import { evidenceManifest } from './evidence-manifest.mjs';
 import { submissionEvidence } from './submission-evidence.mjs';
+import { errorDetail, redacted } from './error-detail.mjs';
 import { reconcileCustody, sanitizeStep } from './reconciliation.mjs';
 import { firstValueFrom, filter } from 'rxjs';
 
@@ -60,7 +61,7 @@ async function worker(envPath) {
   const step = async (name, fn) => {
     const started = Date.now();
     try { const value = await fn(); return { ok: true, value, elapsedMs: Date.now() - started }; }
-    catch (error) { send({ failure: { step: name, category: failureCategory(error) } }); if (error?.code === 'OUTCOME_UNKNOWN') { outcomeUnknown = true; throw error; } return { ok: false }; }
+    catch (error) { send({ failure: { step: name, category: failureCategory(error), detail: errorDetail(error) } }); if (error?.code === 'OUTCOME_UNKNOWN') { outcomeUnknown = true; throw error; } return { ok: false }; }
   };
 
   const [{ openProtectedWallet }, sdk, ledger, contracts, indexer, zkModule, proofModule, privateModule, compactJs, deployScript] = await Promise.all([
@@ -97,8 +98,16 @@ async function worker(envPath) {
       const id = deployScript.finalizedTransactionId(finalized);
       send({ submitted: { txHash: id, txBytes: finalized.serialize().length, at: new Date().toISOString() } });
       // The facade tracks the pending spend, waits for Finalized and reverts wallet state on failure.
-      await bounded(opened.wallet.submitTransaction(finalized), 180000);
-      send({ nodeFinalized: { txHash: id } });
+      try {
+        await bounded(opened.wallet.submitTransaction(finalized), 180000);
+        send({ nodeFinalized: { txHash: id, via: 'node' } });
+      } catch (error) {
+        if (error?.code !== 'OUTCOME_UNKNOWN') throw error;
+        // The node Finalized subscription can stall after a long sync while the tx still lands;
+        // only a fresh indexer read of this exact transaction may then establish finality.
+        await publicDataProvider.watchForTxData(id);
+        send({ nodeFinalized: { txHash: id, via: 'indexer' } });
+      }
       return id;
     } };
     const walletProvider = {
@@ -346,7 +355,7 @@ child.on('message', (m) => {
   }
   const submitted = m?.submitted && submissionEvidence(m.submitted.txHash);
   if (submitted) { evidence.submissions.push({ ...submitted, txBytes: num(m.submitted.txBytes) }); console.error(JSON.stringify({ submitted: submitted.transactionId })); }
-  if (m?.nodeFinalized) { const submission = evidence.submissions.find(s => s.transactionId === m.nodeFinalized.txHash); if (submission) submission.nodeFinalized = true; }
+  if (m?.nodeFinalized) { const submission = evidence.submissions.find(s => s.transactionId === m.nodeFinalized.txHash); if (submission) { submission.nodeFinalized = true; submission.finalizedVia = m.nodeFinalized.via === 'indexer' ? 'indexer' : 'node'; } }
   if (m?.previousRunReconciliation) evidence.previousRunReconciliation = { poolReportedCustody: str(m.previousRunReconciliation.poolReportedCustody, /^\d{1,30}$/), poolPrizeLiability: str(m.previousRunReconciliation.poolPrizeLiability, /^\d{1,30}$/) };
   if (m?.funding) evidence.funding = { nightBalance: str(m.funding.nightBalance, /^\d{1,30}$/), dustBalance: str(m.funding.dustBalance, /^\d{1,30}$/) };
   if (m?.separatedAsset) evidence.separatedAssetAddress = str(m.separatedAsset, /^[0-9a-f]{64}$/);
@@ -362,7 +371,7 @@ child.on('message', (m) => {
     const hex = (v) => str(v, /^[0-9a-f]{64}$/);
     (evidence.custodyCommitmentReads ??= []).push({ stage: m.custodyCommitment.stage, attempt: num(m.custodyCommitment.attempt), matched: m.custodyCommitment.matched === true, contractCommitment: hex(m.custodyCommitment.contractCommitment), outputCommitments: (Array.isArray(m.custodyCommitment.outputCommitments) ? m.custodyCommitment.outputCommitments : []).slice(0, 4).map(hex) }); }
   if (m?.walletRelease) evidence.walletRelease = { shieldedColorBalances: Object.fromEntries(Object.entries(m.walletRelease.shieldedColorBalances ?? {}).filter(([k, v]) => /^[0-9a-f]{64}$/.test(k) && /^\d{1,30}$/.test(v))) };
-  if (m?.failure) { console.error(JSON.stringify({failureStep: str(m.failure.step, /^[a-z-]{1,40}$/), category: ['credential-unavailable','endpoint-invalid','wallet-initialization-failed','wallet-startup-failed','wallet-synchronization-failed','outcome-unknown','runtime-statevalue-mismatch','unexpected-contract-output-count','qualified-coin-unavailable','indexer-query-failed','operation-failed'].includes(m.failure.category) ? m.failure.category : 'operation-failed'})); evidence.failures.push({ step: str(m.failure.step, /^[a-z-]{1,40}$/), category: ['credential-unavailable','endpoint-invalid','wallet-initialization-failed','wallet-startup-failed','wallet-synchronization-failed','outcome-unknown','runtime-statevalue-mismatch','unexpected-contract-output-count','qualified-coin-unavailable','indexer-query-failed','operation-failed'].includes(m.failure.category) ? m.failure.category : 'operation-failed' }); }
+  if (m?.failure) { console.error(JSON.stringify({failureStep: str(m.failure.step, /^[a-z-]{1,40}$/), category: ['credential-unavailable','endpoint-invalid','wallet-initialization-failed','wallet-startup-failed','wallet-synchronization-failed','outcome-unknown','runtime-statevalue-mismatch','unexpected-contract-output-count','qualified-coin-unavailable','indexer-query-failed','operation-failed'].includes(m.failure.category) ? m.failure.category : 'operation-failed'})); evidence.failures.push({ step: str(m.failure.step, /^[a-z-]{1,40}$/), detail: String(m.failure.detail ?? '').split(' <- ').slice(0, 4).map(redacted).join(' <- '), category: ['credential-unavailable','endpoint-invalid','wallet-initialization-failed','wallet-startup-failed','wallet-synchronization-failed','outcome-unknown','runtime-statevalue-mismatch','unexpected-contract-output-count','qualified-coin-unavailable','indexer-query-failed','operation-failed'].includes(m.failure.category) ? m.failure.category : 'operation-failed' }); }
   writeFileSync(resultPath, JSON.stringify(evidence, null, 2) + '\n');
 });
 child.on('exit', () => {
