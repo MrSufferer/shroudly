@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {SCHEDULE} from './schedule.mjs';
 import {DRAW, S, E, setup, revealed} from './harness.mjs';
-import {honestBucket, claimDeadlines, smokeInterval, lockedStep, awaitFinality, providerClock} from './plan.mjs';
+import {honestBucket, claimDeadlines, smokeInterval, lockedStep, awaitFinality, providerClock, boundedSubmit, transactionId} from './plan.mjs';
 
 const {BUCKET} = SCHEDULE;
 
@@ -116,6 +116,30 @@ test('a transaction the indexer never resolves aborts the run and keeps the wall
   assert.equal(error.abortRun, true);
   assert.equal(error.holdLock, true);
   assert.equal(timers.live.size, 0);
+});
+
+const watchable = (...identifiers) => ({identifiers: () => identifiers});
+
+test('a submission that returns in time passes its id through and clears its timeout', async () => {
+  const timers = trackedTimers();
+  const result = await boundedSubmit(async () => 'from-wallet', watchable('a'), {timeoutMs: 1000, timers});
+  assert.deepEqual(result, {id: 'from-wallet', stalled: false});
+  assert.equal(timers.live.size, 0);
+});
+
+test('a submission stuck waiting for finality returns the transaction id for the indexer watch', async () => {
+  const timers = trackedTimers();
+  const result = await boundedSubmit(() => new Promise(() => {}), watchable('', 'tx-1', 'tx-2'), {timeoutMs: 10, timers});
+  assert.deepEqual(result, {id: 'tx-1', stalled: true});
+  assert.equal(timers.live.size, 0);
+});
+
+test('a node rejection still throws so the caller can revert the DUST spend', async () => {
+  await assert.rejects(boundedSubmit(async () => { throw Error('1010 Invalid Transaction: Custom error: 104'); }, watchable('a'), {timeoutMs: 1000}), /104/);
+});
+
+test('a transaction without an identifier is refused before submission', () => {
+  assert.throws(() => transactionId(watchable('')), /no identifier/);
 });
 
 const dated = date => ({rpc: async () => ({result: 'Midnight Preprod', date})});

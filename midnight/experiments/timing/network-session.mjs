@@ -8,6 +8,7 @@ import {openStagedWallet, errorClass} from './wallet.mjs';
 import {clientFor} from './provider.mjs';
 import {ownerSecret, slotSecret} from './synthetic.mjs';
 import {forgingContract} from './forging.mjs';
+import {boundedSubmit} from './plan.mjs';
 export {withWalletLock} from './wallet-lock.mjs';
 export {providerClock} from './plan.mjs';
 
@@ -98,10 +99,14 @@ export async function openSession(envPath) {
   };
   const midnightProvider = {
     // A rejected submission leaves its DUST spend pending locally until the TTL; revert it so
-    // later steps can balance.
+    // later steps can balance. A stalled one is not rejected: hand its id to the indexer watch.
     submitTx: async tx => {
-      try { if (control.gate) await control.gate(); return await wallet.submitTransaction(tx); }
-      catch (error) { await wallet.revertTransaction(tx).catch(() => {}); throw error; }
+      try {
+        if (control.gate) await control.gate();
+        const submitted = await boundedSubmit(candidate => wallet.submitTransaction(candidate), tx);
+        control.submitStalled = submitted.stalled;
+        return submitted.id;
+      } catch (error) { await wallet.revertTransaction(tx).catch(() => {}); throw error; }
     },
   };
   const providers = {

@@ -104,3 +104,4 @@ Inclusion latency across run 6 was 2–7 s (median 4, n = 16). Run 2 saw one 20 
 - The wallet lock (`/tmp/shroudly-wallet.lock`) records its owner's PID. It is reclaimed only when that process is dead. A lock with no owner file is waited for.
 - `SHROUDLY_TIMING_WALLET_CACHE` must name an existing cache containing all three wallet files. `wallet.mjs` refuses to start otherwise, and never syncs from genesis.
 - A provider response without a parseable `Date` header stops the run, rather than letting a NaN clock fire every step at once.
+- Run 7 hung for over an hour holding the wallet lock: its first transaction landed at S+48, but the wallet facade's `submitTransaction` never returned because the node's Finalized subscription stalled. Submissions are now bounded at 180 s (`boundedSubmit`). A stalled one is not reverted. Its identifier goes to the indexer watch, and the step records `submitStalled`.

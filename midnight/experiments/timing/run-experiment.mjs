@@ -66,12 +66,13 @@ if (process.argv[2] === '--worker') {
             const {data, resolvedAfterTimeout} = await awaitFinality(publicDataProvider.watchForTxData(submitted.txId));
             record.observedFinalizedAtSeconds = +clock.now().toFixed(3);
             if (resolvedAfterTimeout) record.finalityResolvedAfterTimeout = true;
+            if (control.submitStalled) record.submitStalled = true;
             Object.assign(record, {outcome: data.status, txHash: data.txHash, blockHash: data.blockHash, blockHeight: data.blockHeight, blockTimestampMs: data.blockTimestamp});
           } catch (error) {
             record.outcome = record.txId ? 'finality-unobserved' : 'rejected-before-block';
             record.errorClass = errorClass(error); record.errorDetail = errorDetail(error);
             if (error?.abortRun) throw error;
-          } finally { record.wallet = control.walletView ?? null; control.walletView = undefined; control.forgedSeconds = undefined; control.gate = undefined; }
+          } finally { record.wallet = control.walletView ?? null; control.walletView = undefined; control.forgedSeconds = undefined; control.gate = undefined; control.submitStalled = undefined; }
         }});
       } catch (error) {
         // A stalled host or an unresolved transaction ends the run: later timing would mean nothing.

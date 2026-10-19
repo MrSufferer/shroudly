@@ -71,6 +71,32 @@ export async function awaitFinality(watch, {timeoutMs = 240000, resolveMs = 1200
 }
 const TIMEOUT = Symbol('timeout');
 
+// The facade's submitTransaction resolves only once the node's Finalized subscription reports the
+// transaction, and that subscription can stall after the transaction lands (run 7 hung holding the
+// wallet lock with its first step already in a block). Node rejections throw promptly, so a submission
+// still pending after `timeoutMs` was accepted: return its identifier and let awaitFinality settle it
+// through the indexer. A timed-out submission must not be reverted, because it may still spend DUST.
+export async function boundedSubmit(submit, tx, {timeoutMs = 180000, timers = globalThis, onStall} = {}) {
+  const id = transactionId(tx);
+  let handle;
+  const timeout = new Promise(resolve => { handle = timers.setTimeout(() => resolve(TIMEOUT), timeoutMs); });
+  const pending = submit(tx);
+  pending.catch(() => {});
+  const result = await Promise.race([pending, timeout]).finally(() => timers.clearTimeout(handle));
+  if (result !== TIMEOUT) return {id: result, stalled: false};
+  onStall?.(id);
+  return {id, stalled: true};
+}
+
+// Same rule as finalizedTransactionId in scripts/midnight-deploy-preprod.mjs: the first non-empty
+// identifier, never the hash.
+export function transactionId(tx) {
+  const identifiers = typeof tx?.identifiers === 'function' ? tx.identifiers() : tx?.identifiers;
+  const id = Array.isArray(identifiers) ? identifiers.find(value => typeof value === 'string' ? value.length > 0 : value != null) : undefined;
+  if (id == null) throw Error('transaction has no identifier to watch');
+  return String(id);
+}
+
 // Network clock from the provider's HTTP Date header (median of five samples). A missing or
 // unparseable header throws: a NaN offset would silently make every scheduled step fire at once.
 export async function providerClock(provider, {samples = 5, pauseMs = 300} = {}) {
