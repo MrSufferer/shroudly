@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 import {readFileSync, readdirSync} from 'node:fs';
 import * as ledgerV8 from '@midnight-ntwrk/ledger-v8';
 import {emit} from './isolated.mjs';
-import {openStagedWallet, errorClass} from './wallet.mjs';
+import {openStagedWallet, errorClass, errorDetail} from './wallet.mjs';
 import {clientFor} from './provider.mjs';
 import {ownerSecret, slotSecret} from './synthetic.mjs';
 import {forgingContract} from './forging.mjs';
@@ -103,7 +103,8 @@ export async function openSession(envPath) {
     submitTx: async tx => {
       try {
         if (control.gate) await control.gate();
-        const submitted = await boundedSubmit(candidate => wallet.submitTransaction(candidate), tx);
+        const submitted = await boundedSubmit(candidate => wallet.submitTransaction(candidate), tx,
+          {unknownOutcome: error => /Failed to parse result provided by node/.test(errorDetail(error))});
         control.submitStalled = submitted.stalled;
         return submitted.id;
       } catch (error) { await wallet.revertTransaction(tx).catch(() => {}); throw error; }

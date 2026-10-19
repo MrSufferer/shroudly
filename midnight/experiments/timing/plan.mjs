@@ -76,16 +76,21 @@ const TIMEOUT = Symbol('timeout');
 // wallet lock with its first step already in a block). Node rejections throw promptly, so a submission
 // still pending after `timeoutMs` was accepted: return its identifier and let awaitFinality settle it
 // through the indexer. A timed-out submission must not be reverted, because it may still spend DUST.
-export async function boundedSubmit(submit, tx, {timeoutMs = 180000, timers = globalThis, onStall} = {}) {
+// Run 8's D.reveal.slot1 landed 6 s after submission, yet the wallet threw a ParseError on the node's
+// reply (no blockNumber); `unknownOutcome` marks such errors as landed-or-not rather than rejected.
+export async function boundedSubmit(submit, tx, {timeoutMs = 180000, timers = globalThis, unknownOutcome = () => false} = {}) {
   const id = transactionId(tx);
   let handle;
   const timeout = new Promise(resolve => { handle = timers.setTimeout(() => resolve(TIMEOUT), timeoutMs); });
   const pending = submit(tx);
   pending.catch(() => {});
-  const result = await Promise.race([pending, timeout]).finally(() => timers.clearTimeout(handle));
+  let result;
+  try { result = await Promise.race([pending, timeout]); } catch (error) {
+    if (unknownOutcome(error)) return {id, stalled: 'unparsed-reply'};
+    throw error;
+  } finally { timers.clearTimeout(handle); }
   if (result !== TIMEOUT) return {id: result, stalled: false};
-  onStall?.(id);
-  return {id, stalled: true};
+  return {id, stalled: 'timeout'};
 }
 
 // Same rule as finalizedTransactionId in scripts/midnight-deploy-preprod.mjs: the first non-empty

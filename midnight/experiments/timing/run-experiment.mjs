@@ -53,20 +53,23 @@ if (process.argv[2] === '--worker') {
       // step evaluates against real network time, so its target sits at least 45 s inside its
       // window: evaluation then runs no earlier than 20 s after the window opens.
       await waitUntil(at - 25);
-      const record = {id, circuit, args: args.map(String), slot, forgedClockSeconds: forge ?? null, targetSeconds: at, expected: expect, note};
+      const record = {id, circuit, args: typeof args === 'function' ? null : args.map(String), slot, forgedClockSeconds: forge ?? null, targetSeconds: at, expected: expect, note};
       try {
         await lockedStep({id, at, clock, record, lock: work => withWalletLock(work, () => emit({stage: 'waiting-for-wallet-lock', for: id})), work: async () => {
           control.forgedSeconds = forge; control.slot = slot;
+          // Honest buckets are chosen once the lock is held, from the time the step actually starts.
+          const callArgs = typeof args === 'function' ? args() : args;
+          record.args = callArgs.map(String);
           control.gate = async () => { await waitUntil(at); record.submittedAtSeconds = +clock.now().toFixed(3); };
           try {
-            const submitted = await contracts.submitCallTxAsync(providers, {compiledContract: compiled, contractAddress: evidence.contractAddress, circuitId: circuit, args});
+            const submitted = await contracts.submitCallTxAsync(providers, {compiledContract: compiled, contractAddress: evidence.contractAddress, circuitId: circuit, args: callArgs});
             control.forgedSeconds = undefined;
             record.txId = submitted.txId;
             // Holds the wallet lock until the indexer resolves the transaction; aborts the run if it never does.
             const {data, resolvedAfterTimeout} = await awaitFinality(publicDataProvider.watchForTxData(submitted.txId));
             record.observedFinalizedAtSeconds = +clock.now().toFixed(3);
             if (resolvedAfterTimeout) record.finalityResolvedAfterTimeout = true;
-            if (control.submitStalled) record.submitStalled = true;
+            if (control.submitStalled) record.submitStalled = control.submitStalled;
             Object.assign(record, {outcome: data.status, txHash: data.txHash, blockHash: data.blockHash, blockHeight: data.blockHeight, blockTimestampMs: data.blockTimestamp});
           } catch (error) {
             record.outcome = record.txId ? 'finality-unobserved' : 'rejected-before-block';
@@ -125,7 +128,7 @@ if (process.argv[2] === '--worker') {
     await step({id: 'D.finalize.forgedBucket', circuit: 'finalize', args: [D, bucketAt(forgedBucketTime + 3600)], at: forgedBucketTime, forge: forgedBucketTime + 3600, expect: 'reject', note: 'caller asserts a selection time an hour in the future'});
     // Honest bucket steps sit 30 s into their bucket: 25 s of evaluation before and inclusion after.
     const finalizeAt = E + 390;
-    await step({id: 'D.finalize', circuit: 'finalize', args: [D, honestBucketAt(finalizeAt)], at: finalizeAt, expect: 'accept', note: 'honest finalization after the reveal window'});
+    await step({id: 'D.finalize', circuit: 'finalize', args: () => [D, honestBucketAt(finalizeAt)], at: finalizeAt, expect: 'accept', note: 'honest finalization after the reveal window'});
     const selection = evidence.steps.at(-1);
     emit({stage: 'finalized', outcome: selection.outcome});
 
@@ -133,16 +136,16 @@ if (process.argv[2] === '--worker') {
     await step({id: 'D2.commit.slot0', circuit: 'commit', args: [D2, 0n], slot: 0, at: E + 470, expect: 'accept'});
     await step({id: 'D2.commit.slot1', circuit: 'commit', args: [D2, 1n], slot: 1, at: E + 520, expect: 'accept'});
     const pauseAt = E + 570;
-    await step({id: 'D.pause.claims', circuit: 'pause', args: [1n, D, honestBucketAt(pauseAt), 240n], at: pauseAt, expect: 'accept', note: 'claim-blocking pause scoped to draw D only; runs from the end of its bucket (E + 600) to E + 840'});
+    await step({id: 'D.pause.claims', circuit: 'pause', args: () => [1n, D, honestBucketAt(pauseAt), 240n], at: pauseAt, expect: 'accept', note: 'claim-blocking pause scoped to draw D only; runs from the end of its bucket (E + 600) to E + 840'});
     await step({id: 'D.claim.duringPause', circuit: 'claim', args: [D], at: E + 640, forge: E + 450, expect: 'reject', note: 'forged pre-pause clock; real network time is inside the pause'});
     await step({id: 'D2.commit.slot2.cutoffProbe40', circuit: 'commit', args: [D2, 2n], slot: 2, at: E + 720 - 40, expect: 'probe', note: 'margin probe: honest commit 40 s before the cutoff'});
     await step({id: 'D2.commit.slot3.cutoffProbe15', circuit: 'commit', args: [D2, 3n], slot: 3, at: E + 720 - 15, expect: 'probe', note: 'margin probe: honest commit 15 s before the cutoff'});
     const depositsAt = E + 870;
-    await step({id: 'D.pause.deposits', circuit: 'pause', args: [2n, 0n, honestBucketAt(depositsAt), 120n], at: depositsAt, expect: 'accept', note: 'unrelated pause: must not extend any claim deadline'});
+    await step({id: 'D.pause.deposits', circuit: 'pause', args: () => [2n, 0n, honestBucketAt(depositsAt), 120n], at: depositsAt, expect: 'accept', note: 'unrelated pause: must not extend any claim deadline'});
     await step({id: 'D2.reveal.slot0', circuit: 'reveal', args: [D2, 0n], slot: 0, at: E + 945, expect: 'accept'});
     await step({id: 'D2.reveal.slot1', circuit: 'reveal', args: [D2, 1n], slot: 1, at: E + 990, expect: 'accept'});
     const finalize2At = E + 1200 + 30;
-    await step({id: 'D2.finalize', circuit: 'finalize', args: [D2, honestBucketAt(finalize2At)], at: finalize2At, expect: 'accept'});
+    await step({id: 'D2.finalize', circuit: 'finalize', args: () => [D2, honestBucketAt(finalize2At)], at: finalize2At, expect: 'accept'});
 
     // ---- Claim deadlines are derived from fresh ledger reads, never from the harness's own clock.
     const state = await readLedger();

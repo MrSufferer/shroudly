@@ -130,12 +130,18 @@ test('a submission that returns in time passes its id through and clears its tim
 test('a submission stuck waiting for finality returns the transaction id for the indexer watch', async () => {
   const timers = trackedTimers();
   const result = await boundedSubmit(() => new Promise(() => {}), watchable('', 'tx-1', 'tx-2'), {timeoutMs: 10, timers});
-  assert.deepEqual(result, {id: 'tx-1', stalled: true});
+  assert.deepEqual(result, {id: 'tx-1', stalled: 'timeout'});
   assert.equal(timers.live.size, 0);
 });
 
 test('a node rejection still throws so the caller can revert the DUST spend', async () => {
   await assert.rejects(boundedSubmit(async () => { throw Error('1010 Invalid Transaction: Custom error: 104'); }, watchable('a'), {timeoutMs: 1000}), /104/);
+});
+
+test('a reply the wallet cannot parse is handed to the indexer, not reverted as a rejection', async () => {
+  const unparsed = Error('Failed to parse result provided by node');
+  const result = await boundedSubmit(async () => { throw unparsed; }, watchable('tx-1'), {timeoutMs: 1000, unknownOutcome: error => error === unparsed});
+  assert.deepEqual(result, {id: 'tx-1', stalled: 'unparsed-reply'});
 });
 
 test('a transaction without an identifier is refused before submission', () => {
